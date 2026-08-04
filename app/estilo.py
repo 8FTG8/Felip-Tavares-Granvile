@@ -22,6 +22,8 @@ tabela completa logo abaixo. A cor nunca é o único portador da informação.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import streamlit as st
 
 # ── Cores ────────────────────────────────────────────────────────────────────────
@@ -94,6 +96,17 @@ def aplicar_layout(figura, altura: int = ALTURA_GRAFICO):
 _CSS = f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+/* Ícones em traço, no mesmo peso do texto — acompanham o rótulo sem dominá-lo. */
+.material-symbols-outlined {{
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    vertical-align: -3px;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+}}
 
 html, body, [class*="css"], .stApp {{
     font-family: {FONTE};
@@ -101,6 +114,22 @@ html, body, [class*="css"], .stApp {{
 
 .stApp {{
     background: {SUPERFICIE_ALTERNATIVA};
+}}
+
+/* Cartões: superfície branca sobre o fundo do aplicativo, com sombra em duas camadas
+   (ambiente + direcional) em vez de borda pesada. */
+[data-testid="stVerticalBlockBorderWrapper"] {{
+    background: {SUPERFICIE};
+    border: 1px solid {BORDA};
+    border-radius: {RAIO["lg"]}px;
+    padding: {ESPACO["lg"]}px {ESPACO["xl"]}px {ESPACO["xl"]}px;
+    box-shadow: 0 1px 4px rgba(15,23,42,0.03), 0 4px 14px rgba(15,23,42,0.04);
+}}
+/* Molduras aninhadas viram ruído: o cartão interno recua para superfície plana. */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] {{
+    box-shadow: none;
+    background: {SUPERFICIE_ALTERNATIVA};
+    padding: {ESPACO["md"]}px {ESPACO["lg"]}px;
 }}
 
 .block-container {{
@@ -118,15 +147,6 @@ h1, h2, h3, h4 {{
 h1 {{ font-size: 1.75rem !important; margin-bottom: {ESPACO["xs"]}px !important; }}
 h2 {{ font-size: 1.25rem !important; }}
 h3 {{ font-size: 1.05rem !important; }}
-
-/* Cartões: sombra em duas camadas (ambiente + direcional), sem borda pesada. */
-[data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stVerticalBlock"]) {{
-    background: {SUPERFICIE};
-    border: 1px solid {BORDA};
-    border-radius: {RAIO["lg"]}px;
-    padding: {ESPACO["lg"]}px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.04), 0 3px 12px rgba(0,0,0,0.06);
-}}
 
 [data-testid="stMetric"] {{
     background: {SUPERFICIE};
@@ -212,11 +232,95 @@ def aplicar() -> None:
     st.markdown(_CSS, unsafe_allow_html=True)
 
 
-def cabecalho(titulo: str, descricao: str) -> None:
-    """Cabeçalho padrão de página: título e uma linha explicando o que a tela faz."""
+def chip(texto: str, cor: str = TINTA_SECUNDARIA, icone: str = "") -> str:
+    """Etiqueta compacta para metadados — modelo em uso, contagens, estado."""
+    marca = (
+        f"<span style='width:6px;height:6px;border-radius:50%;background:{cor};"
+        f"display:inline-block;margin-right:6px'></span>"
+        if icone == "ponto"
+        else ""
+    )
+    return (
+        f"<span style='display:inline-flex;align-items:center;font-size:0.75rem;"
+        f"color:{TINTA_SECUNDARIA};background:{SUPERFICIE_ALTERNATIVA};"
+        f"border:1px solid {BORDA};border-radius:{RAIO['cheio']}px;"
+        f"padding:3px 10px;white-space:nowrap'>{marca}{texto}</span>"
+    )
+
+
+def topo(
+    titulo: str,
+    descricao: str,
+    etiquetas: tuple[str, ...] = (),
+    acao: str | None = None,
+    icone_acao: str | None = None,
+) -> bool:
+    """Cabeçalho de página: título, descrição, etiquetas de contexto e ação primária.
+
+    A ação fica à direita do título, como nas telas de referência — o usuário encontra o
+    que fazer na página sem procurar. Devolve ``True`` quando o botão é acionado.
+
+    O Streamlit não fixa a faixa ao rolar; ela acompanha o conteúdo. Preferiu-se isso a
+    simular fixação com CSS, que quebra a rolagem interna dos gráficos.
+    """
+    esquerda, direita = st.columns([7, 3], vertical_alignment="center")
+
+    with esquerda:
+        st.markdown(
+            f"<h1 style='margin-bottom:2px'>{titulo}</h1>"
+            f"<p style='color:{TINTA_SECUNDARIA};font-size:0.9rem;margin:0'>{descricao}</p>",
+            unsafe_allow_html=True,
+        )
+
+    acionado = False
+    with direita:
+        if etiquetas:
+            st.markdown(
+                "<div style='display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;"
+                f"margin-bottom:{ESPACO['sm']}px'>" + "".join(etiquetas) + "</div>",
+                unsafe_allow_html=True,
+            )
+        if acao:
+            acionado = st.button(
+                acao,
+                type="primary",
+                use_container_width=True,
+                icon=f":material/{icone_acao}:" if icone_acao else None,
+            )
+
     st.markdown(
-        f"<h1>{titulo}</h1>"
-        f"<p style='color:{TINTA_SECUNDARIA};font-size:0.95rem;margin-top:-4px;"
-        f"margin-bottom:{ESPACO['xl']}px'>{descricao}</p>",
+        f"<div style='height:1px;background:{BORDA};margin:{ESPACO['lg']}px 0 "
+        f"{ESPACO['xl']}px'></div>",
         unsafe_allow_html=True,
     )
+    return acionado
+
+
+@contextmanager
+def cartao(titulo: str | None = None, complemento: str | None = None):
+    """Bloco de conteúdo em superfície branca sobre o fundo do aplicativo.
+
+    O cartão agrupa uma unidade de informação e a separa das demais — é o que dá
+    estrutura à página sem depender de divisores sucessivos.
+    """
+    with st.container(border=True):
+        if titulo:
+            extra = (
+                f"<span style='font-size:0.78rem;color:{TINTA_SUAVE};margin-left:auto'>"
+                f"{complemento}</span>"
+                if complemento
+                else ""
+            )
+            st.markdown(
+                f"<div style='display:flex;align-items:baseline;gap:{ESPACO['sm']}px;"
+                f"margin-bottom:{ESPACO['md']}px'>"
+                f"<span style='font-size:1rem;font-weight:600;color:{TINTA}'>{titulo}</span>"
+                f"{extra}</div>",
+                unsafe_allow_html=True,
+            )
+        yield
+
+
+def cabecalho(titulo: str, descricao: str) -> None:
+    """Compatibilidade: cabeçalho sem etiquetas nem ação."""
+    topo(titulo, descricao)

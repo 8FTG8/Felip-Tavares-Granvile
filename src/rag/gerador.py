@@ -239,6 +239,11 @@ class Gerador:
         mensagens.append({"role": "user", "content": _prompt(decisao, pergunta)})
         return mensagens
 
+    @property
+    def modelo(self) -> str:
+        """Modelo em uso, exibido na interface para que a demonstração seja explícita."""
+        return self._modelo
+
     def disponivel(self) -> bool:
         """Verifica se o modelo está servido localmente."""
         try:

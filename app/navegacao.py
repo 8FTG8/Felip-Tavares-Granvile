@@ -28,12 +28,24 @@ class Destino:
     descricao: str
 
 
-DESTINOS = (
-    Destino("Painel", "Painel", "monitoring", "Panorama do histórico"),
-    Destino("Análise de evento", "Análise de evento", "vital_signs", "Leitura de sensor"),
-    Destino("Assistente técnico", "Assistente técnico", "forum", "Conversa técnica"),
-    Destino("Base documental", "Documentos", "description", "Procedimentos técnicos"),
+#: Agrupados por natureza da tarefa: o que se faz no dia a dia e o que se configura.
+#: Quatro itens soltos não formam uma lista legível; agrupados, formam.
+SECOES: tuple[tuple[str, tuple[Destino, ...]], ...] = (
+    (
+        "Operação",
+        (
+            Destino("Painel", "Painel", "monitoring", "Panorama do histórico"),
+            Destino("Análise de evento", "Análise de evento", "vital_signs", "Leitura de sensor"),
+            Destino("Assistente técnico", "Assistente técnico", "forum", "Conversa técnica"),
+        ),
+    ),
+    (
+        "Configuração",
+        (Destino("Base documental", "Documentos", "description", "Procedimentos técnicos"),),
+    ),
 )
+
+DESTINOS = tuple(destino for _, grupo in SECOES for destino in grupo)
 
 _PADRAO = DESTINOS[0].chave
 
@@ -176,49 +188,83 @@ def _navegacao(pendentes: list[str] | None) -> str:
     if "pagina" not in st.session_state:
         st.session_state.pagina = _PADRAO
 
-    for destino in DESTINOS:
-        ativo = st.session_state.pagina == destino.chave
-        rotulo = destino.rotulo
-        if destino.chave == "Base documental" and pendentes:
-            rotulo += _chip(str(len(pendentes)))
+    for indice, (secao, destinos) in enumerate(SECOES):
+        _rotulo_secao(secao, espaco_acima=0 if indice == 0 else estilo.ESPACO["lg"])
 
-        if st.button(
-            rotulo,
-            key=f"nav_{destino.chave}",
-            icon=f":material/{destino.icone}:",
-            type="primary" if ativo else "secondary",
-            use_container_width=True,
-            help=destino.descricao,
-        ):
-            st.session_state.pagina = destino.chave
-            st.rerun()
+        for destino in destinos:
+            ativo = st.session_state.pagina == destino.chave
+            rotulo = destino.rotulo
+            if destino.chave == "Base documental" and pendentes:
+                rotulo += _chip(str(len(pendentes)))
 
-        if destino.chave == "Base documental" and pendentes:
-            _subitens(pendentes)
+            if st.button(
+                rotulo,
+                key=f"nav_{destino.chave}",
+                icon=f":material/{destino.icone}:",
+                type="primary" if ativo else "secondary",
+                use_container_width=True,
+                help=destino.descricao,
+            ):
+                st.session_state.pagina = destino.chave
+                st.rerun()
+
+            if destino.chave == "Base documental" and pendentes:
+                _subitens(pendentes)
 
     return st.session_state.pagina
 
 
-def _situacao_do_servico(cliente: ClienteApi) -> None:
+def _linha_estado(rotulo: str, valor: str) -> str:
+    return (
+        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+        f"padding:4px 0'>"
+        f"<span style='font-size:0.75rem;color:{estilo.TINTA_SUAVE}'>{rotulo}</span>"
+        f"<span style='font-size:0.75rem;color:{estilo.TINTA_SECUNDARIA};"
+        f"font-weight:500'>{valor}</span></div>"
+    )
+
+
+def _cartao_sistema(cliente: ClienteApi) -> None:
+    """Estado do serviço em um bloco só: conexão, modelo, limiar e cobertura.
+
+    Reúne o que a demonstração precisa ter à vista — sobretudo o modelo em uso, que é a
+    primeira pergunta de quem avalia uma solução com LLM local.
+    """
     _rotulo_secao("Sistema", espaco_acima=estilo.ESPACO["lg"])
 
-    conectada = cliente.disponivel()
-    cor = estilo.SUCESSO if conectada else estilo.ALERTA
+    try:
+        sistema = cliente.sistema()
+    except Exception:
+        sistema = None
+
+    conectada = sistema is not None
+    cor = estilo.SUCESSO if conectada else estilo.CRITICO
     texto = "API conectada" if conectada else "API indisponível"
+
+    linhas = ""
+    if sistema:
+        linhas = (
+            f"<div style='height:1px;background:{estilo.BORDA};margin:8px 0'></div>"
+            + _linha_estado("Modelo", sistema["modelo"].split(":")[0])
+            + _linha_estado("Variante", sistema["modelo"].split(":")[-1])
+            + _linha_estado("Limiar", f"{sistema['limiar_relevancia']:.3f}")
+            + _linha_estado(
+                "Cobertura",
+                f"{sistema['familias_documentadas']}/{sistema['familias_totais']} famílias",
+            )
+        )
 
     st.markdown(
         f"""
-        <div style="display:flex;align-items:center;gap:{estilo.ESPACO['sm']}px;
-                    padding:{estilo.ESPACO['sm']}px {estilo.ESPACO['md']}px;
-                    border-radius:{estilo.RAIO['md']}px;
+        <div style="border:1px solid {estilo.BORDA};border-radius:{estilo.RAIO['md']}px;
+                    padding:{estilo.ESPACO['md']}px;
                     background:{estilo.SUPERFICIE_ALTERNATIVA}">
-          <span style="width:7px;height:7px;border-radius:50%;background:{cor};
-                       flex-shrink:0;box-shadow:0 0 0 3px {cor}22"></span>
-          <span style="font-size:0.82rem;color:{estilo.TINTA_SECUNDARIA}">{texto}</span>
-          <span style="margin-left:auto;font-size:0.7rem;color:{estilo.TINTA_SUAVE};
-                       font-family:monospace">
-            {cliente.base.replace("http://", "")}
-          </span>
+          <div style="display:flex;align-items:center;gap:{estilo.ESPACO['sm']}px">
+            <span style="width:7px;height:7px;border-radius:50%;background:{cor};
+                         flex-shrink:0;box-shadow:0 0 0 3px {cor}22"></span>
+            <span style="font-size:0.8rem;font-weight:500;color:{estilo.TINTA}">{texto}</span>
+          </div>
+          {linhas}
         </div>
         """,
         unsafe_allow_html=True,
@@ -249,6 +295,6 @@ def renderizar(cliente: ClienteApi) -> str:
         st.markdown(_CSS, unsafe_allow_html=True)
         _cabecalho()
         escolha = _navegacao(_pendencias(cliente))
-        _situacao_do_servico(cliente)
+        _cartao_sistema(cliente)
         _rodape()
     return escolha

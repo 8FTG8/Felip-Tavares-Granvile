@@ -61,7 +61,13 @@ class ClienteApi:
                 resposta = cliente.get(self._url(caminho))
         except httpx.HTTPError as erro:
             raise ApiIndisponivel(str(erro)) from erro
-        resposta.raise_for_status()
+
+        # Uma resposta de erro é tratada como serviço indisponível, e não propagada como
+        # exceção do httpx: para a interface, uma API que responde 404 num endpoint que
+        # deveria existir está tão inutilizável quanto uma que não responde — em geral por
+        # estar rodando uma versão anterior. A tela mostra o aviso em vez de quebrar.
+        if resposta.status_code >= 400:
+            raise ApiIndisponivel(f"{caminho} respondeu {resposta.status_code}")
         return resposta.json()
 
     # -- operações -----------------------------------------------------------------
@@ -118,6 +124,9 @@ class ClienteApi:
 
     def cobertura(self) -> list[dict]:
         return self._get("/documentos/cobertura")  # type: ignore[return-value]
+
+    def sistema(self) -> dict:
+        return self._get("/sistema")  # type: ignore[return-value]
 
     def estatisticas(self) -> dict:
         return self._get("/estatisticas")  # type: ignore[return-value]

@@ -182,9 +182,21 @@ class TestPaginas:
         assert teste.session_state["pagina"] == "Base documental"
 
     def test_painel_exibe_a_cobertura(self) -> None:
+        """A cobertura documental é o indicador que abre o painel — sem ele, a lacuna da
+        base fica invisível."""
         from streamlit.testing.v1 import AppTest
 
         teste = AppTest.from_file("app/main.py", default_timeout=120)
         teste.run()
-        rotulos = [m.label for m in teste.metric]
-        assert "Cobertura documental" in rotulos
+        conteudo = " ".join(bloco.value for bloco in teste.markdown)
+        assert "Cobertura documental" in conteudo
+        assert "Eventos monitorados" in conteudo
+
+    def test_topo_declara_o_modelo_em_uso(self) -> None:
+        """A demonstração precisa deixar explícito qual modelo está respondendo."""
+        from streamlit.testing.v1 import AppTest
+
+        teste = AppTest.from_file("app/main.py", default_timeout=120)
+        teste.run()
+        conteudo = " ".join(bloco.value for bloco in teste.markdown)
+        assert "qwen2.5" in conteudo

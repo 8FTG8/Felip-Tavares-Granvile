@@ -135,6 +135,22 @@ class Fonte(BaseModel):
     origem: str
 
 
+class EstadoSistema(BaseModel):
+    """Configuração vigente do serviço, exibida na interface.
+
+    Torna visível qual modelo está respondendo e com que limiar o guardrail opera —
+    informação que, numa demonstração, evita a pergunta "mas isso é o modelo grande?".
+    """
+
+    modelo: str
+    modelo_disponivel: bool
+    limiar_relevancia: float
+    trechos_indexados: int
+    eventos_indexados: int
+    familias_documentadas: int
+    familias_totais: int
+
+
 class ResumoHistorico(BaseModel):
     """Números gerais do histórico monitorado."""
 

@@ -23,6 +23,7 @@ from src.api.esquemas import (
     CondicaoNoHistorico,
     Consulta,
     DocumentoRegistrado,
+    EstadoSistema,
     EventoSensor,
     Fonte,
     OcorrenciaSimilar,
@@ -146,6 +147,37 @@ def analisar_evento(
             for t in decisao.trechos
         ],
         contexto=_montar_contexto(contexto),
+    )
+
+
+@app.get(
+    "/sistema",
+    response_model=EstadoSistema,
+    summary="Configuração vigente do serviço",
+    tags=["Sistema"],
+)
+def consultar_sistema(
+    similaridade: IndiceSimilaridade = Depends(obter_indice_similaridade),
+    documental: IndiceDocumental = Depends(obter_indice_documental),
+    roteador: Roteador = Depends(obter_roteador),
+    gerador: Gerador = Depends(obter_gerador),
+    registro: RegistroDocumentos = Depends(obter_registro),
+) -> EstadoSistema:
+    """Modelo em uso, limiar do guardrail e tamanho dos índices."""
+    cadastrados = {d.condicao for d in registro.listar()}
+    documentadas = sum(
+        1
+        for condicao in DEFEITOS
+        if cobertura(condicao).documentada or condicao in cadastrados
+    )
+    return EstadoSistema(
+        modelo=gerador.modelo,
+        modelo_disponivel=gerador.disponivel(),
+        limiar_relevancia=roteador.limiar,
+        trechos_indexados=documental.total_trechos,
+        eventos_indexados=similaridade.total_eventos,
+        familias_documentadas=documentadas,
+        familias_totais=len(DEFEITOS),
     )
 
 
