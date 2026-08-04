@@ -1,3 +1,6 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "lento: exige o modelo de embeddings ou OCR (desative com -m 'not lento')",
+]
