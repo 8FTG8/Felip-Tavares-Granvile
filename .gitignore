@@ -13,7 +13,10 @@ models/*.pkl
 storage/
 *.db
 *.sqlite3
-.streamlit/secrets.toml
 
 # Notas de trabalho locais, fora da entrega
 memory/
+
+# Frontend
+node_modules/
+web/dist/

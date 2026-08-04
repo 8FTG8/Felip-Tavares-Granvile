@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+/* Design system da solução.
+ *
+ * Quatro cores cromáticas e uma rampa neutra — nada além disso. Cada cor carrega um
+ * significado fixo, e a escassez é intencional: quando tudo é colorido, cor deixa de
+ * informar.
+ *
+ * O acento pode aparecer em qualquer lugar (ação primária, item corrente, série única de
+ * gráfico). As três cores de status são reservadas e nunca viram "mais uma série": verde
+ * significa sempre *coberto por procedimento*, âmbar sempre *sem respaldo documental*,
+ * vermelho sempre *falha*.
+ *
+ * **Acessibilidade.** As cores foram medidas em visão normal, protanopia, deuteranopia e
+ * tritanopia, contra a superfície de cada tema. No tema claro o pior par sob visão normal
+ * fica em ΔE 18,5; no escuro, 16,9. O par verde/âmbar fica em ΔE 7,9 sob protanopia nos
+ * dois temas — faixa admissível apenas com codificação secundária, e por isso os gráficos
+ * que os usam juntos trazem rótulo direto, legenda com contagem e a tabela completa. A cor
+ * nunca é o único portador da informação.
+ *
+ * **O tema escuro é escolhido, não invertido.** Suas cores foram selecionadas contra a
+ * superfície escura e revalidadas: a faixa de luminosidade aceitável muda de L 0,43–0,77
+ * para 0,48–0,67, e cores simplesmente clareadas saem dela.
+ */
+@theme {
+  --color-acento: #0369a1;
+  --color-acento-suave: #e0f2fe;
+  --color-sucesso: #059669;
+  --color-sucesso-suave: #ecfdf5;
+  --color-alerta: #d97706;
+  --color-alerta-suave: #fffbeb;
+  --color-critico: #be123c;
+  --color-critico-suave: #fff1f2;
+
+  --color-tinta: #0f172a;
+  --color-tinta-secundaria: #475569;
+  /* Legendas e textos auxiliares: 4,8:1 sobre a superfície clara. O tom mais claro que
+   * este reprova o mínimo da WCAG AA, e o token é usado justamente nos textos menores. */
+  --color-tinta-suave: #64748b;
+
+  --color-superficie: #ffffff;
+  --color-fundo: #f8fafc;
+  --color-ativo: #f1f5f9;
+  --color-borda: #e2e8f0;
+  --color-grade: #eef2f6;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", monospace;
+
+  --radius-cartao: 12px;
+
+  /* Escala tipográfica: sete degraus, do rótulo de tabela ao número em destaque. Tamanhos
+   * fora dela seriam decisão sem critério. */
+  --text-nota: 0.72rem;
+  --text-auxiliar: 0.78rem;
+  --text-corpo: 0.86rem;
+  --text-corpo-forte: 0.92rem;
+  --text-titulo-cartao: 1rem;
+  --text-titulo-pagina: 1.6rem;
+  --text-destaque: 1.7rem;
+
+  /* Sombras em duas camadas: luz ambiente e luz direcional. */
+  --shadow-cartao: 0 1px 4px rgba(15, 23, 42, 0.03), 0 4px 14px rgba(15, 23, 42, 0.04);
+  --shadow-flutuante: 0 2px 8px rgba(15, 23, 42, 0.06), 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+/* Tema escuro. As cores de gráfico mantêm o mesmo tom do tema claro — no escuro elas
+ * ficam mais luminosas que a superfície, e clareá-las as levaria para fora da faixa. O
+ * vermelho é a exceção: como aparece sobretudo em texto, foi escolhido pelo contraste de
+ * leitura, não pela regra de marca de gráfico. */
+[data-tema="escuro"] {
+  --color-acento: #0284c7;
+  --color-acento-suave: #0c4a6e;
+  --color-sucesso: #059669;
+  --color-sucesso-suave: #064e3b;
+  --color-alerta: #d97706;
+  --color-alerta-suave: #451a03;
+  --color-critico: #fb7185;
+  --color-critico-suave: #4c0519;
+
+  --color-tinta: #e2e8f0;
+  --color-tinta-secundaria: #94a3b8;
+  --color-tinta-suave: #7c8ba1;
+
+  --color-superficie: #1e293b;
+  --color-fundo: #0f172a;
+  --color-ativo: #273449;
+  --color-borda: #334155;
+  --color-grade: #273449;
+
+  --shadow-cartao: 0 1px 4px rgba(0, 0, 0, 0.24), 0 4px 14px rgba(0, 0, 0, 0.28);
+  --shadow-flutuante: 0 2px 8px rgba(0, 0, 0, 0.32), 0 12px 28px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--color-fundo);
+    color: var(--color-tinta);
+    transition: background 200ms ease, color 200ms ease;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+    font-weight: 600;
+    color: var(--color-tinta);
+  }
+
+  /* Identificadores, rótulos de sensor e JSON em monoespaçada: são dados, não prosa, e
+   * alinham em coluna quando aparecem em tabela. */
+  code,
+  pre {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    background: var(--color-superficie);
+    color: var(--color-tinta);
+  }
+
+  ::placeholder {
+    color: var(--color-tinta-suave);
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-borda);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* Texto de procedimento devolvido pelo modelo: markdown simples, com espaçamento de
+   * leitura em campo. */
+  .prosa {
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--color-tinta-secundaria);
+  }
+  .prosa strong {
+    color: var(--color-tinta);
+    font-weight: 600;
+  }
+  .prosa ol,
+  .prosa ul {
+    margin: 0.6rem 0;
+    padding-left: 1.15rem;
+  }
+  .prosa ol {
+    list-style: decimal;
+  }
+  .prosa ul {
+    list-style: disc;
+  }
+  .prosa li {
+    margin-bottom: 0.3rem;
+  }
+  .prosa p {
+    margin-bottom: 0.6rem;
+  }
+  .prosa code {
+    background: var(--color-ativo);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+}
