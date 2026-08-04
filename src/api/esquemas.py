@@ -135,6 +135,52 @@ class Fonte(BaseModel):
     origem: str
 
 
+class TurnoConversa(BaseModel):
+    """Uma fala anterior do diálogo."""
+
+    papel: str = Field(description="usuario ou assistente")
+    conteudo: str
+
+
+class Consulta(BaseModel):
+    """Pergunta do técnico sobre uma condição do equipamento."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "pergunta": "o eixo pode estar empenado?",
+                "condicao": "cocked_rotor_2",
+                "historico": [],
+            }
+        }
+    )
+
+    pergunta: str = Field(min_length=3, max_length=500)
+    condicao: str | None = Field(
+        default=None,
+        description=(
+            "Condição do equipamento, canônica ou como anotada pelo operador. Sem ela a "
+            "pergunta não pode ser roteada a um procedimento e o sistema pede a definição."
+        ),
+    )
+    historico: list[TurnoConversa] = Field(
+        default_factory=list, max_length=20, description="Falas anteriores do diálogo"
+    )
+
+
+class RespostaChat(BaseModel):
+    """Resposta a uma consulta do técnico."""
+
+    resposta: str
+    caminho: str
+    condicao: str | None = None
+    documento: str | None = None
+    motivo_recusa: str | None = None
+    gerada_por_llm: bool
+    modelo: str | None = None
+    fontes: list["Fonte"] = Field(default_factory=list)
+
+
 class DocumentoRegistrado(BaseModel):
     """Procedimento cadastrado em operação, em resposta a uma recusa do sistema."""
 

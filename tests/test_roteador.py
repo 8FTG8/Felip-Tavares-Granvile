@@ -150,10 +150,10 @@ class TestSegundaBarreira:
         assert roteador.decidir("cocked_rotor_2").caminho is Caminho.PRESCRICAO
 
     def test_limiar_calibrado_e_nao_arbitrario(self) -> None:
-        """ADR-010: o valor vem de scripts/calibrar_limiar.py, que mediu 30 perguntas.
-        As distribuições não se sobrepõem — pertinentes a partir de 0,8728;
-        impertinentes até 0,8409 — e o corte fica no meio desse vão."""
-        assert 0.8409 < LIMIAR_RELEVANCIA < 0.8728
+        """ADR-010: o valor vem de scripts/calibrar_limiar.py, que mediu 44 perguntas —
+        longas e curtas, pertinentes e não. As distribuições se sobrepõem, e o corte é o
+        piso que aceita todas as legítimas medidas (mínima observada: 0,8407)."""
+        assert LIMIAR_RELEVANCIA <= 0.8407
 
     def test_limiar_configuravel(self) -> None:
         permissivo = Roteador(IndiceFalso(relevancia=0.50), limiar=0.10)  # type: ignore[arg-type]

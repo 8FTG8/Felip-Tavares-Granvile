@@ -12,16 +12,19 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 
 from src.api.esquemas import (
     AnaliseEvento,
     ContextoHistorico,
     CoberturaDocumental,
+    Consulta,
     DocumentoRegistrado,
     EventoSensor,
     Fonte,
     OcorrenciaSimilar,
     PerguntaOpcional,
+    RespostaChat,
     ResumoCondicao,
 )
 from src.api.dependencias import (
@@ -137,6 +140,109 @@ def analisar_evento(
             for t in decisao.trechos
         ],
         contexto=_montar_contexto(contexto),
+    )
+
+
+#: Resposta quando a pergunta chega sem condição associada. O sistema não tenta adivinhar
+#: a que equipamento o técnico se refere: com seis procedimentos que compartilham seções
+#: de mesmo nome, escolher um por conta própria seria sortear a fonte da resposta.
+SEM_CONDICAO = (
+    "**Preciso saber a que condição do equipamento você se refere.**\n\n"
+    "As orientações vêm dos procedimentos técnicos da empresa, e cada procedimento cobre "
+    "um tipo de falha específico. Sem saber a condição, eu teria de escolher um documento "
+    "por conta própria — e a resposta poderia vir do procedimento errado.\n\n"
+    "Informe a condição do evento (por exemplo, `cocked_rotor`, `desalinhado`, "
+    "`rolamento_inner`) ou selecione um evento registrado."
+)
+
+
+@app.post(
+    "/chat",
+    response_model=RespostaChat,
+    summary="Responde uma pergunta técnica sobre a condição de um equipamento",
+    tags=["Chat"],
+)
+def conversar(
+    consulta: Consulta,
+    roteador: Roteador = Depends(obter_roteador),
+    gerador: Gerador = Depends(obter_gerador),
+) -> RespostaChat:
+    """Consulta livre, submetida às mesmas barreiras da análise de evento.
+
+    O chat não é uma porta lateral para o modelo: a pergunta é roteada pela condição
+    informada, e a resposta só é gerada se houver procedimento com trecho relevante. Sem
+    condição, o sistema pede a definição em vez de escolher um documento por conta
+    própria.
+    """
+    if not consulta.condicao:
+        return RespostaChat(
+            resposta=SEM_CONDICAO,
+            caminho="sem_condicao",
+            gerada_por_llm=False,
+        )
+
+    decisao = roteador.decidir(consulta.condicao, consulta.pergunta)
+    recomendacao = gerador.responder(
+        decisao,
+        consulta.pergunta,
+        historico=[turno.model_dump() for turno in consulta.historico],
+    )
+
+    return RespostaChat(
+        resposta=recomendacao.texto,
+        caminho=decisao.caminho.value,
+        condicao=decisao.condicao,
+        documento=decisao.documento,
+        motivo_recusa=decisao.motivo.value if decisao.motivo else None,
+        gerada_por_llm=recomendacao.gerada_por_llm,
+        modelo=recomendacao.modelo,
+        fontes=[
+            Fonte(
+                documento=t.trecho.documento,
+                numero_secao=t.trecho.numero_secao,
+                titulo_secao=t.trecho.titulo_secao,
+                citacao=t.citacao,
+                relevancia=round(t.relevancia, 4),
+                origem=t.trecho.origem,
+            )
+            for t in decisao.trechos
+        ],
+    )
+
+
+@app.post(
+    "/chat/fluxo",
+    summary="Mesma consulta, com a resposta transmitida em tempo real",
+    tags=["Chat"],
+    response_class=StreamingResponse,
+)
+def conversar_em_fluxo(
+    consulta: Consulta,
+    roteador: Roteador = Depends(obter_roteador),
+    gerador: Gerador = Depends(obter_gerador),
+) -> StreamingResponse:
+    """Versão incremental de :func:`conversar`, para a interface de chat.
+
+    Em estação sem GPU dedicada a geração leva dezenas de segundos, e ver o texto surgindo
+    torna a espera aceitável. As recusas continuam instantâneas — são compostas em código.
+    """
+    if not consulta.condicao:
+        return StreamingResponse(iter([SEM_CONDICAO]), media_type="text/plain; charset=utf-8")
+
+    decisao = roteador.decidir(consulta.condicao, consulta.pergunta)
+    fluxo = gerador.responder_em_fluxo(
+        decisao,
+        consulta.pergunta,
+        historico=[turno.model_dump() for turno in consulta.historico],
+    )
+    return StreamingResponse(
+        fluxo,
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "X-Caminho": decisao.caminho.value,
+            "X-Condicao": decisao.condicao,
+            "X-Documento": decisao.documento or "",
+        },
     )
 
 

@@ -149,7 +149,12 @@ class Gerador:
         self._modelo = modelo
         self._cliente = cliente or ollama.Client()
 
-    def responder(self, decisao: Decisao, pergunta: str | None = None) -> Recomendacao:
+    def responder(
+        self,
+        decisao: Decisao,
+        pergunta: str | None = None,
+        historico: list[dict[str, str]] | None = None,
+    ) -> Recomendacao:
         """Compõe a resposta do caminho decidido pelo roteador.
 
         Os caminhos de recusa não acionam o modelo: seu texto é determinístico, montado a
@@ -175,7 +180,7 @@ class Gerador:
 
         resposta = self._cliente.chat(
             model=self._modelo,
-            messages=self._mensagens(decisao, pergunta),
+            messages=self._mensagens(decisao, pergunta, historico),
             options={"temperature": TEMPERATURA, "num_predict": MAXIMO_TOKENS},
         )
 
@@ -187,7 +192,12 @@ class Gerador:
             modelo=self._modelo,
         )
 
-    def responder_em_fluxo(self, decisao: Decisao, pergunta: str | None = None):
+    def responder_em_fluxo(
+        self,
+        decisao: Decisao,
+        pergunta: str | None = None,
+        historico: list[dict[str, str]] | None = None,
+    ):
         """Versão incremental de :meth:`responder`, para a interface de chat.
 
         Em hardware sem GPU dedicada a geração leva dezenas de segundos, e ver o texto
@@ -200,17 +210,34 @@ class Gerador:
 
         for parte in self._cliente.chat(
             model=self._modelo,
-            messages=self._mensagens(decisao, pergunta),
+            messages=self._mensagens(decisao, pergunta, historico),
             options={"temperature": TEMPERATURA, "num_predict": MAXIMO_TOKENS},
             stream=True,
         ):
             yield parte["message"]["content"]
 
-    def _mensagens(self, decisao: Decisao, pergunta: str | None) -> list[dict[str, str]]:
-        return [
-            {"role": "system", "content": INSTRUCAO_SISTEMA},
-            {"role": "user", "content": _prompt(decisao, pergunta)},
-        ]
+    def _mensagens(
+        self,
+        decisao: Decisao,
+        pergunta: str | None,
+        historico: list[dict[str, str]] | None = None,
+    ) -> list[dict[str, str]]:
+        """Monta a conversa enviada ao modelo.
+
+        O histórico dá continuidade ao diálogo — "e se o eixo estiver empenado?" só faz
+        sentido depois da pergunta anterior. Os trechos recuperados, porém, são sempre os
+        da **rodada atual**: o contexto documental é reconstruído a cada pergunta, de modo
+        que o modelo nunca responda apoiado em trechos de um turno anterior que já não
+        foram recuperados. Sem isso, a citação deixaria de corresponder ao que sustenta a
+        resposta.
+        """
+        mensagens = [{"role": "system", "content": INSTRUCAO_SISTEMA}]
+        for turno in historico or []:
+            if turno.get("papel") in {"usuario", "assistente"} and turno.get("conteudo"):
+                papel = "user" if turno["papel"] == "usuario" else "assistant"
+                mensagens.append({"role": papel, "content": turno["conteudo"]})
+        mensagens.append({"role": "user", "content": _prompt(decisao, pergunta)})
+        return mensagens
 
     def disponivel(self) -> bool:
         """Verifica se o modelo está servido localmente."""

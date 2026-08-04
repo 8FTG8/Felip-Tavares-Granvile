@@ -37,14 +37,44 @@ from src.rag.indice_documental import IndiceDocumental, TrechoRecuperado
 from src.rag.mapeamento import Cobertura, cobertura
 from src.rag.registro import RegistroDocumentos
 
-#: Limiar de relevância da segunda barreira, calibrado por ``scripts/calibrar_limiar.py``
-#: contra 30 perguntas — 16 respondidas pelo documento roteado e 14 sobre assuntos
-#: ausentes dele (ADR-010). As duas distribuições não se sobrepõem: as pertinentes ficam
-#: entre 0,8728 e 0,9261; as impertinentes, entre 0,7858 e 0,8409. O corte é o ponto de
-#: margem máxima nesse vão, separando 16/16 e 14/14.
-LIMIAR_RELEVANCIA = 0.8569
+#: Limiar da segunda barreira, calibrado por ``scripts/calibrar_limiar.py`` contra 44
+#: perguntas — 24 respondidas pelo documento roteado e 20 sobre assuntos ausentes dele,
+#: metade longas e metade no registro curto de um chat (ADR-010).
+#:
+#: As distribuições se sobrepõem: uma pergunta curta legítima ("e o rolamento?") pontua
+#: abaixo de uma impertinente bem formulada, porque o comprimento do texto pesa na
+#: similaridade de cosseno. Não existe corte que acerte os dois lados, e o escolhido é o
+#: piso que aceita 24/24 das legítimas barrando 10/20 das impertinentes.
+#:
+#: A escolha reflete o papel desta barreira: ela é um piso, não a defesa principal. O
+#: caso central — defeito sem procedimento algum — é resolvido pela primeira barreira, que
+#: é determinística. O que escapa daqui ainda encontra o aterramento nos trechos do
+#: documento roteado e a instrução explícita de declarar quando o procedimento não cobre o
+#: ponto perguntado.
+LIMIAR_RELEVANCIA = 0.8400
 
 TRECHOS_PADRAO = 4
+
+
+def montar_consulta(condicao: str, pergunta: str | None) -> str:
+    """Compõe a consulta enviada ao índice semântico, sempre ancorada na condição.
+
+    A pergunta do técnico raramente é uma frase completa — "e o eixo?", "como alinho?" —,
+    e o comprimento do texto domina a similaridade de cosseno: medido na base, perguntas
+    curtas legítimas pontuam entre 0,80 e 0,85, abaixo de perguntas impertinentes bem
+    formuladas. Comparar uma pergunta de três palavras com uma seção inteira de
+    procedimento mede sobretudo a diferença de tamanho.
+
+    Prefixar a condição devolve à consulta a massa semântica que a conversa deixa
+    implícita: o técnico não repete "rotor inclinado" a cada frase porque o assunto já
+    está estabelecido, e o sistema conhece a condição pelo evento. A mesma transformação é
+    aplicada na calibração do limiar — medir uma coisa e produzir outra invalidaria o
+    corte.
+    """
+    legivel = condicao.replace("_", " ")
+    if not pergunta or not pergunta.strip():
+        return f"como diagnosticar e corrigir o problema de {legivel}"
+    return f"{legivel}: {pergunta.strip()}"
 
 
 class Caminho(str, Enum):
@@ -154,7 +184,7 @@ class Roteador:
 
         # Segunda barreira: relevância dos trechos recuperados (ADR-010).
         recuperados = self._indice.buscar(
-            pergunta or self._pergunta_padrao(condicao.canonico),
+            montar_consulta(condicao.canonico, pergunta),
             documento=situacao.documento,
             trechos=self._trechos,
         )
@@ -175,11 +205,7 @@ class Roteador:
             **base,
         )
 
-    @staticmethod
-    def _pergunta_padrao(condicao: str) -> str:
-        """Consulta usada quando o evento chega do sensor, sem pergunta do técnico."""
-        legivel = condicao.replace("_", " ")
-        return f"como diagnosticar e corrigir o problema de {legivel}"
+    @property
 
     @property
     def limiar(self) -> float:
