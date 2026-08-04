@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+
+# Dados brutos e artefatos pesados não versionados
+data/raw/
+data/processed/
+models/*.joblib
+models/*.pkl
+storage/
+*.db
+*.sqlite3
+.streamlit/secrets.toml
+
+# Notas de trabalho locais, fora da entrega
+memory/

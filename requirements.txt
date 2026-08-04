@@ -1,0 +1,27 @@
+# Núcleo de dados e modelagem
+pandas==2.2.3
+numpy==2.0.2
+scikit-learn==1.5.2
+joblib==1.4.2
+
+# Ingestão documental e recuperação semântica (ADR-009)
+pypdf==5.1.0
+chromadb==0.5.20
+sentence-transformers==3.3.1
+
+# Camada de prescrição (ADR-001)
+ollama==0.4.4
+
+# API (ADR-002)
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+python-multipart==0.0.20
+httpx==0.28.1
+
+# Interface (ADR-002)
+streamlit==1.41.1
+plotly==5.24.1
+
+# Testes
+pytest==8.3.4
