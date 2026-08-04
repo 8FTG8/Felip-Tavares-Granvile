@@ -8,6 +8,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from app import estilo
 from app.cliente import ApiIndisponivel, ClienteApi
 from app.componentes import aviso_api_indisponivel, mostrar_fontes, rodape_modelo, selo_caminho
 
@@ -123,16 +124,21 @@ def _mostrar_contexto(contexto: dict) -> None:
             }
         ).sort_values("dia")
         figura = px.bar(serie, x="dia", y="eventos", labels={"dia": "", "eventos": ""})
-        figura.update_traces(marker_color="#1565C0")
-        figura.update_layout(height=240)
+        figura.update_traces(
+            marker_color=estilo.ACENTO,
+            marker_line_width=2,
+            marker_line_color=estilo.SUPERFICIE,
+            hovertemplate="<b>%{x|%d/%m/%Y}</b><br>%{y:,} eventos<extra></extra>",
+        )
+        estilo.aplicar_layout(figura, altura=240)
         st.plotly_chart(figura, use_container_width=True)
 
 
 def renderizar(cliente: ClienteApi) -> None:
-    st.title("Análise de evento")
-    st.caption(
+    estilo.cabecalho(
+        "Análise de evento",
         "Recebe a leitura de um sensor, localiza ocorrências semelhantes no histórico e "
-        "prescreve a ação corretiva quando há procedimento que a fundamente."
+        "prescreve a ação corretiva quando há procedimento que a fundamente.",
     )
 
     caso = st.selectbox("Caso de demonstração", list(CASOS))
@@ -174,8 +180,11 @@ def renderizar(cliente: ClienteApi) -> None:
 
     selo_caminho(resultado["caminho"], resultado.get("documento"))
     st.markdown(
-        f"Condição identificada: **{resultado['condicao']}** "
-        f"(anotada como `{resultado['rotulo_bruto']}`)"
+        f"<p style='font-size:0.85rem;color:{estilo.TINTA_SECUNDARIA};"
+        f"margin-bottom:{estilo.ESPACO['lg']}px'>Condição identificada: "
+        f"<b style='color:{estilo.TINTA}'>{resultado['condicao']}</b> · anotada pelo "
+        f"operador como <code>{resultado['rotulo_bruto']}</code></p>",
+        unsafe_allow_html=True,
     )
 
     st.markdown(resultado["recomendacao"])

@@ -5,16 +5,17 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from app import estilo
 from app.cliente import ApiIndisponivel, ClienteApi
 from app.componentes import aviso_api_indisponivel
 
 
 def renderizar(cliente: ClienteApi) -> None:
-    st.title("Base documental")
-    st.caption(
+    estilo.cabecalho(
+        "Base documental",
         "Quando um defeito não tem procedimento cadastrado, o sistema recusa-se a "
         "recomendar. Cadastrar o procedimento aqui faz o defeito passar a ser atendido "
-        "imediatamente, sem reiniciar o serviço."
+        "imediatamente, sem reiniciar o serviço.",
     )
 
     try:
@@ -35,17 +36,41 @@ def renderizar(cliente: ClienteApi) -> None:
 
     st.subheader("Situação por defeito")
     for _, situacao in situacoes.iterrows():
-        if situacao["documentada"]:
+        documentada = bool(situacao["documentada"])
+        cor = estilo.SUCESSO if documentada else estilo.ALERTA
+        if documentada:
             origem = (
                 " · cadastrado em operação" if situacao["cadastrado_em_operacao"] else ""
             )
-            st.markdown(
-                f"✅ **{situacao['condicao']}** — `{situacao['documento']}`{origem}"
+            detalhe = (
+                f"<code>{situacao['documento']}</code>"
+                f"<span style='color:{estilo.TINTA_SUAVE}'>{origem}</span>"
             )
         else:
-            with st.container(border=True):
-                st.markdown(f"⚠️ **{situacao['condicao']}** — sem procedimento")
-                st.caption(situacao["justificativa"])
+            detalhe = (
+                f"<span style='color:{estilo.TINTA_SECUNDARIA}'>"
+                f"{situacao['justificativa']}</span>"
+            )
+
+        st.markdown(
+            f"""
+            <div style="display:flex;gap:{estilo.ESPACO['md']}px;
+                        background:{estilo.SUPERFICIE};border:1px solid {estilo.BORDA};
+                        border-left:3px solid {cor};
+                        border-radius:{estilo.RAIO['md']}px;
+                        padding:{estilo.ESPACO['md']}px {estilo.ESPACO['lg']}px;
+                        margin-bottom:{estilo.ESPACO['sm']}px;
+                        box-shadow:0 1px 4px rgba(0,0,0,0.03)">
+              <span style="color:{cor};font-weight:700;flex-shrink:0">
+                {"✓" if documentada else "!"}
+              </span>
+              <span style="font-size:0.88rem;line-height:1.5">
+                <b style="color:{estilo.TINTA}">{situacao['condicao']}</b><br>{detalhe}
+              </span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.divider()
 

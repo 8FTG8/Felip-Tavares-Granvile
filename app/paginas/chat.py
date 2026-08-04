@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app import estilo
 from app.cliente import ApiIndisponivel, ClienteApi
 from app.componentes import aviso_api_indisponivel, selo_caminho
 
@@ -38,11 +39,11 @@ def _historico_para_api() -> list[dict]:
 
 
 def renderizar(cliente: ClienteApi) -> None:
-    st.title("Assistente técnico")
-    st.caption(
+    estilo.cabecalho(
+        "Assistente técnico",
         "As respostas vêm exclusivamente dos procedimentos da empresa. Quando não há "
         "procedimento que fundamente a orientação, o assistente diz isso em vez de "
-        "improvisar."
+        "improvisar.",
     )
 
     if "conversa" not in st.session_state:
@@ -73,7 +74,13 @@ def renderizar(cliente: ClienteApi) -> None:
         with st.chat_message("user" if turno["papel"] == "usuario" else "assistant"):
             st.markdown(turno["conteudo"])
             if turno.get("fontes"):
-                st.caption("Fontes: " + " · ".join(turno["fontes"]))
+                st.markdown(
+                    f"<p style='font-size:0.75rem;color:{estilo.TINTA_SUAVE};"
+                    f"margin-top:{estilo.ESPACO['sm']}px'>Fontes: "
+                    + " · ".join(turno["fontes"])
+                    + "</p>",
+                    unsafe_allow_html=True,
+                )
 
     pergunta = st.chat_input("Pergunte sobre a falha…")
     if not pergunta:
@@ -104,7 +111,11 @@ def renderizar(cliente: ClienteApi) -> None:
             selo_caminho(roteamento["caminho"], roteamento.get("documento") or None)
 
         if fontes:
-            st.caption("Fontes: " + " · ".join(fontes))
+            st.markdown(
+                f"<p style='font-size:0.75rem;color:{estilo.TINTA_SUAVE};"
+                f"margin-top:{estilo.ESPACO['sm']}px'>Fontes: " + " · ".join(fontes) + "</p>",
+                unsafe_allow_html=True,
+            )
 
     st.session_state.conversa.append(
         {"papel": "assistente", "conteudo": resposta, "fontes": fontes}

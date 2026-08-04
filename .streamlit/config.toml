@@ -1,0 +1,13 @@
+[theme]
+# Tokens espelhados do design system usado na plataforma Caree (app/estilo.py).
+primaryColor = "#1D4ED8"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F6F7F9"
+textColor = "#0D1929"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
