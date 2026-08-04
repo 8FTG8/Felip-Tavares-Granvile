@@ -6,7 +6,9 @@ joblib==1.4.2
 
 # Ingestão documental e recuperação semântica (ADR-009)
 pypdf==5.1.0
-chromadb==0.5.20
+pypdfium2==5.12.1
+rapidocr-onnxruntime==1.4.4
+chromadb==1.5.9
 sentence-transformers==3.3.1
 
 # Camada de prescrição (ADR-001)
