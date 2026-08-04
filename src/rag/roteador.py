@@ -35,6 +35,7 @@ from enum import Enum
 from src.ingestion.rotulos import TipoCondicao, normalizar
 from src.rag.indice_documental import IndiceDocumental, TrechoRecuperado
 from src.rag.mapeamento import Cobertura, cobertura
+from src.rag.registro import RegistroDocumentos
 
 #: Limiar de relevância da segunda barreira, calibrado por ``scripts/calibrar_limiar.py``
 #: contra 30 perguntas — 16 respondidas pelo documento roteado e 14 sobre assuntos
@@ -96,10 +97,30 @@ class Roteador:
         indice: IndiceDocumental,
         limiar: float = LIMIAR_RELEVANCIA,
         trechos: int = TRECHOS_PADRAO,
+        registro: RegistroDocumentos | None = None,
     ) -> None:
         self._indice = indice
         self._limiar = limiar
         self._trechos = trechos
+        self._registro = registro
+
+    def _cobertura(self, condicao: str) -> Cobertura:
+        """Cobertura documental da condição, considerando cadastros feitos em operação.
+
+        O mapa estático descreve a base entregue com o projeto; o registro acrescenta os
+        procedimentos cadastrados depois, em resposta às próprias recusas do sistema
+        (ADR-014). A ordem importa: um cadastro em operação sobrepõe-se ao mapa, porque
+        representa conhecimento mais recente da equipe de manutenção.
+        """
+        situacao = cobertura(condicao)
+        if situacao.documentada or self._registro is None:
+            return situacao
+
+        cadastrado = self._registro.documento_de(condicao)
+        if cadastrado is None:
+            return situacao
+
+        return Cobertura(condicao=condicao, documento=cadastrado, justificativa="")
 
     def decidir(self, rotulo: str | None, pergunta: str | None = None) -> Decisao:
         """Decide o caminho para um evento, sem acionar o modelo de linguagem.
@@ -109,7 +130,7 @@ class Roteador:
         ninguém tendo perguntado nada.
         """
         condicao = normalizar(rotulo)
-        situacao = cobertura(condicao.canonico)
+        situacao = self._cobertura(condicao.canonico)
 
         base = {
             "condicao": condicao.canonico,

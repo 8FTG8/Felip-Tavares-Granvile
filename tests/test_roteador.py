@@ -7,7 +7,7 @@ recusar exigisse carregar 1,1 GB de pesos para ser verificada, ela não seria
 determinística.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pytest
 
@@ -28,6 +28,12 @@ class IndiceFalso:
 
     relevancia: float = 0.95
     documento_devolvido: str | None = None
+    indexados: list = field(default_factory=list)
+
+    def indexar(self, trechos=None, recriar: bool = False) -> int:
+        """Registra o que seria indexado, sem carregar o modelo de embeddings."""
+        self.indexados.extend(trechos or [])
+        return len(trechos or [])
 
     def buscar(self, pergunta: str, documento: str | None = None, trechos: int = 4):
         self.documento_devolvido = documento

@@ -135,6 +135,27 @@ class Fonte(BaseModel):
     origem: str
 
 
+class DocumentoRegistrado(BaseModel):
+    """Procedimento cadastrado em operação, em resposta a uma recusa do sistema."""
+
+    condicao: str
+    documento: str
+    trechos: int
+    origem: str = Field(description="nativo ou ocr, conforme o PDF enviado")
+    cadastrado_em: datetime
+    secoes: list[str] = Field(default_factory=list)
+
+
+class CoberturaDocumental(BaseModel):
+    """Situação documental de uma condição."""
+
+    condicao: str
+    documentada: bool
+    documento: str | None = None
+    cadastrado_em_operacao: bool = False
+    justificativa: str = ""
+
+
 class AnaliseEvento(BaseModel):
     """Resposta completa da análise de um evento."""
 

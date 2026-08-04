@@ -7,11 +7,17 @@ contrato que torna essa integração possível; a interface gráfica é apenas u
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI
+import tempfile
+from pathlib import Path
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 
 from src.api.esquemas import (
     AnaliseEvento,
     ContextoHistorico,
+    CoberturaDocumental,
+    DocumentoRegistrado,
     EventoSensor,
     Fonte,
     OcorrenciaSimilar,
@@ -20,10 +26,17 @@ from src.api.esquemas import (
 )
 from src.api.dependencias import (
     obter_gerador,
+    obter_indice_documental,
     obter_indice_similaridade,
+    obter_registro,
     obter_roteador,
 )
+from src.ingestion.rotulos import DEFEITOS
+from src.rag.cadastro import CadastroInvalido, cadastrar
 from src.rag.gerador import Gerador
+from src.rag.indice_documental import IndiceDocumental
+from src.rag.mapeamento import cobertura
+from src.rag.registro import RegistroDocumentos
 from src.rag.roteador import Roteador
 from src.similarity.indice import ContextoSimilaridade, IndiceSimilaridade
 
@@ -125,3 +138,78 @@ def analisar_evento(
         ],
         contexto=_montar_contexto(contexto),
     )
+
+
+@app.post(
+    "/documentos",
+    response_model=DocumentoRegistrado,
+    status_code=201,
+    summary="Cadastra um procedimento técnico para uma condição sem documentação",
+    tags=["Documentos"],
+)
+async def cadastrar_documento(
+    condicao: Annotated[str, Form(description="Condição que o procedimento cobre")],
+    arquivo: Annotated[UploadFile, File(description="PDF do procedimento técnico")],
+    indice: IndiceDocumental = Depends(obter_indice_documental),
+    registro: RegistroDocumentos = Depends(obter_registro),
+) -> DocumentoRegistrado:
+    """Cadastra o procedimento que faltava e passa a atender a condição.
+
+    Este endpoint é o que torna verdadeira a instrução dada nas recusas. O documento
+    recebe o mesmo tratamento da base original — extração adaptativa, fatiamento por
+    seção e indexação — e a condição é atendida já na consulta seguinte, sem reinício.
+    """
+    if not arquivo.filename or not arquivo.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=415, detail="Envie o procedimento em formato PDF.")
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temporario:
+        temporario.write(await arquivo.read())
+        caminho = Path(temporario.name)
+
+    try:
+        resultado = cadastrar(condicao, caminho, indice, registro)
+    except CadastroInvalido as erro:
+        raise HTTPException(status_code=422, detail=str(erro)) from erro
+    finally:
+        caminho.unlink(missing_ok=True)
+
+    return DocumentoRegistrado(
+        condicao=resultado.documento.condicao,
+        documento=resultado.documento.documento,
+        trechos=resultado.documento.trechos,
+        origem=resultado.documento.origem,
+        cadastrado_em=resultado.documento.cadastrado_em,
+        secoes=resultado.secoes,
+    )
+
+
+@app.get(
+    "/documentos/cobertura",
+    response_model=list[CoberturaDocumental],
+    summary="Situação documental de cada família de defeito",
+    tags=["Documentos"],
+)
+def consultar_cobertura(
+    registro: RegistroDocumentos = Depends(obter_registro),
+) -> list[CoberturaDocumental]:
+    """Lista quais defeitos têm procedimento e quais aguardam cadastro.
+
+    É a visão que orienta a equipe sobre onde a base documental está incompleta — e a
+    origem dos números exibidos no painel de cobertura.
+    """
+    cadastrados = {d.condicao: d for d in registro.listar()}
+    situacoes: list[CoberturaDocumental] = []
+
+    for condicao in sorted(DEFEITOS):
+        estatica = cobertura(condicao)
+        cadastrado = cadastrados.get(condicao)
+        situacoes.append(
+            CoberturaDocumental(
+                condicao=condicao,
+                documentada=estatica.documentada or cadastrado is not None,
+                documento=estatica.documento or (cadastrado.documento if cadastrado else None),
+                cadastrado_em_operacao=not estatica.documentada and cadastrado is not None,
+                justificativa="" if cadastrado else estatica.justificativa,
+            )
+        )
+    return situacoes

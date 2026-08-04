@@ -14,6 +14,7 @@ from functools import lru_cache
 
 from src.rag.gerador import Gerador
 from src.rag.indice_documental import IndiceDocumental
+from src.rag.registro import RegistroDocumentos
 from src.rag.roteador import Roteador
 from src.similarity.indice import IndiceSimilaridade
 
@@ -31,8 +32,18 @@ def obter_indice_documental() -> IndiceDocumental:
 
 
 @lru_cache(maxsize=1)
+def obter_registro() -> RegistroDocumentos:
+    return RegistroDocumentos()
+
+
+@lru_cache(maxsize=1)
 def obter_roteador() -> Roteador:
-    return Roteador(obter_indice_documental())
+    """Roteador ciente dos procedimentos cadastrados em operação (ADR-014).
+
+    O registro é consultado a cada decisão, e não copiado na inicialização: um documento
+    cadastrado passa a valer na consulta seguinte, sem reinício do serviço.
+    """
+    return Roteador(obter_indice_documental(), registro=obter_registro())
 
 
 @lru_cache(maxsize=1)
