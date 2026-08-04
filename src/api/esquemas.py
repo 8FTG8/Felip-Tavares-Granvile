@@ -135,6 +135,48 @@ class Fonte(BaseModel):
     origem: str
 
 
+class ResumoHistorico(BaseModel):
+    """Números gerais do histórico monitorado."""
+
+    total_eventos: int
+    total_defeitos: int
+    total_estados: int
+    familias_de_defeito: int
+    primeiro_evento: datetime
+    ultimo_evento: datetime
+    dias_com_registro: int
+    cobertura_documental: float = Field(
+        description="Proporção dos eventos de defeito com procedimento cadastrado"
+    )
+
+
+class CondicaoNoHistorico(BaseModel):
+    """Presença de uma condição no histórico, com sua situação documental."""
+
+    condicao: str
+    tipo_condicao: str
+    eventos: int
+    proporcao: float
+    primeira: datetime
+    ultima: datetime
+    dias_com_registro: int
+    frequencia_diaria: float
+    rotulos_brutos: int = Field(
+        description="Grafias distintas usadas pelo operador para a mesma condição"
+    )
+    documentada: bool
+    documento: str | None = None
+
+
+class PainelHistorico(BaseModel):
+    """Conjunto de agregações que alimenta o painel."""
+
+    resumo: ResumoHistorico
+    condicoes: list[CondicaoNoHistorico]
+    eventos_por_dia: dict[str, int]
+    eventos_por_rpm: dict[str, int]
+
+
 class TurnoConversa(BaseModel):
     """Uma fala anterior do diálogo."""
 

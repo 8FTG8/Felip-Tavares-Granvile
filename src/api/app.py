@@ -18,14 +18,17 @@ from src.api.esquemas import (
     AnaliseEvento,
     ContextoHistorico,
     CoberturaDocumental,
+    CondicaoNoHistorico,
     Consulta,
     DocumentoRegistrado,
     EventoSensor,
     Fonte,
     OcorrenciaSimilar,
+    PainelHistorico,
     PerguntaOpcional,
     RespostaChat,
     ResumoCondicao,
+    ResumoHistorico,
 )
 from src.api.dependencias import (
     obter_gerador,
@@ -34,6 +37,7 @@ from src.api.dependencias import (
     obter_registro,
     obter_roteador,
 )
+from src.api.estatisticas import resumir
 from src.ingestion.rotulos import DEFEITOS
 from src.rag.cadastro import CadastroInvalido, cadastrar
 from src.rag.gerador import Gerador
@@ -140,6 +144,83 @@ def analisar_evento(
             for t in decisao.trechos
         ],
         contexto=_montar_contexto(contexto),
+    )
+
+
+@app.get(
+    "/estatisticas",
+    response_model=PainelHistorico,
+    summary="Agregações do histórico para o painel",
+    tags=["Estatísticas"],
+)
+def consultar_estatisticas(
+    similaridade: IndiceSimilaridade = Depends(obter_indice_similaridade),
+    registro: RegistroDocumentos = Depends(obter_registro),
+) -> PainelHistorico:
+    """Panorama do histórico monitorado, com a situação documental de cada condição.
+
+    A cobertura documental é calculada em eventos, não em famílias: dizer que 9 das 12
+    famílias têm procedimento esconde que essas 9 respondem por 80% das ocorrências. É a
+    proporção de eventos que mede o alcance real da base documental.
+    """
+    panorama = resumir(similaridade.eventos)
+    cadastrados = {d.condicao for d in registro.listar()}
+
+    def documento_de(condicao: str) -> str | None:
+        estatico = cobertura(condicao).documento
+        if estatico:
+            return estatico
+        return next(
+            (d.documento for d in registro.listar() if d.condicao == condicao), None
+        )
+
+    condicoes = [
+        CondicaoNoHistorico(
+            condicao=c.condicao,
+            tipo_condicao=c.tipo_condicao,
+            eventos=c.eventos,
+            proporcao=round(c.proporcao, 4),
+            primeira=c.primeira,
+            ultima=c.ultima,
+            dias_com_registro=c.dias_com_registro,
+            frequencia_diaria=round(c.frequencia_diaria, 2),
+            rotulos_brutos=c.rotulos_brutos,
+            documentada=(
+                c.condicao in DEFEITOS
+                and (cobertura(c.condicao).documentada or c.condicao in cadastrados)
+            ),
+            documento=documento_de(c.condicao) if c.condicao in DEFEITOS else None,
+        )
+        for c in panorama.condicoes
+    ]
+
+    defeitos_documentados = sum(
+        c.eventos for c in condicoes if c.tipo_condicao == "defeito" and c.documentada
+    )
+
+    return PainelHistorico(
+        resumo=ResumoHistorico(
+            total_eventos=panorama.resumo.total_eventos,
+            total_defeitos=panorama.resumo.total_defeitos,
+            total_estados=panorama.resumo.total_estados,
+            familias_de_defeito=panorama.resumo.familias_de_defeito,
+            primeiro_evento=panorama.resumo.primeiro_evento,
+            ultimo_evento=panorama.resumo.ultimo_evento,
+            dias_com_registro=panorama.resumo.dias_com_registro,
+            cobertura_documental=round(
+                defeitos_documentados / panorama.resumo.total_defeitos, 4
+            )
+            if panorama.resumo.total_defeitos
+            else 0.0,
+        ),
+        condicoes=condicoes,
+        eventos_por_dia={
+            dia.strftime("%Y-%m-%d"): int(total)
+            for dia, total in panorama.eventos_por_dia.items()
+        },
+        eventos_por_rpm={
+            f"{int(rpm)}": total for rpm, total in panorama.eventos_por_rpm.items()
+        },
     )
 
 

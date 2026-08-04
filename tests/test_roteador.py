@@ -159,6 +159,11 @@ class TestSegundaBarreira:
         permissivo = Roteador(IndiceFalso(relevancia=0.50), limiar=0.10)  # type: ignore[arg-type]
         assert permissivo.decidir("cocked_rotor_2").caminho is Caminho.PRESCRICAO
 
+    def test_limiar_em_uso_e_consultavel(self) -> None:
+        """A interface exibe o limiar vigente junto da recusa por relevância."""
+        assert Roteador(IndiceFalso(), limiar=0.77).limiar == pytest.approx(0.77)
+        assert Roteador(IndiceFalso()).limiar == pytest.approx(LIMIAR_RELEVANCIA)
+
 
 class TestFiltroPorDocumento:
     def test_busca_restrita_ao_documento_roteado(

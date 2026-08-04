@@ -206,7 +206,5 @@ class Roteador:
         )
 
     @property
-
-    @property
     def limiar(self) -> float:
         return self._limiar

@@ -283,6 +283,17 @@ class IndiceSimilaridade:
     # -- introspecção --------------------------------------------------------------
 
     @property
+    def eventos(self) -> pd.DataFrame:
+        """Histórico completo, para agregações do painel.
+
+        Devolve o conjunto integral, e não os representantes deduplicados: o painel
+        responde com que frequência algo acontece na fábrica, e a resposta é a contagem de
+        eventos reais. A deduplicação existe para dar diversidade à vizinhança, não para
+        alterar a estatística operacional.
+        """
+        return self._eventos
+
+    @property
     def total_eventos(self) -> int:
         return len(self._eventos)
 
