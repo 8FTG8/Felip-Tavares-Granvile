@@ -7,9 +7,11 @@ contrato que torna essa integração possível; a interface gráfica é apenas u
 
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -316,6 +318,10 @@ def conversar_em_fluxo(
         consulta.pergunta,
         historico=[turno.model_dump() for turno in consulta.historico],
     )
+    # Os cabeçalhos carregam o roteamento e as citações, disponíveis antes do primeiro
+    # token: a interface precisa deles para exibir o selo e as fontes sem repetir a
+    # consulta, o que dobraria o tempo de geração. Valores HTTP são limitados a latin-1,
+    # daí a codificação percentual — as citações têm acentuação.
     return StreamingResponse(
         fluxo,
         media_type="text/plain; charset=utf-8",
@@ -323,6 +329,7 @@ def conversar_em_fluxo(
             "X-Caminho": decisao.caminho.value,
             "X-Condicao": decisao.condicao,
             "X-Documento": decisao.documento or "",
+            "X-Fontes": quote(json.dumps(decisao.citacoes, ensure_ascii=False)),
         },
     )
 
