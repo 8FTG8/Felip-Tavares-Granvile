@@ -1,9 +1,9 @@
 [theme]
-# Tokens espelhados do design system usado na plataforma Caree (app/estilo.py).
-primaryColor = "#1D4ED8"
+# Espelha os tokens de app/estilo.py, onde a paleta esta documentada e justificada.
+primaryColor = "#0369A1"
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F6F7F9"
-textColor = "#0D1929"
+secondaryBackgroundColor = "#F8FAFC"
+textColor = "#0F172A"
 font = "sans serif"
 
 [server]

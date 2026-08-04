@@ -117,7 +117,7 @@ def _series_temporais(dados: dict) -> None:
         figura = px.area(serie, x="dia", y="eventos", labels={"dia": "", "eventos": ""})
         figura.update_traces(
             line={"color": estilo.ACENTO, "width": 2},
-            fillcolor="rgba(29,78,216,0.10)",
+            fillcolor="rgba(3,105,161,0.10)",
             hovertemplate="<b>%{x|%d/%m/%Y}</b><br>%{y:,} eventos<extra></extra>",
         )
         estilo.aplicar_layout(figura, altura=300)

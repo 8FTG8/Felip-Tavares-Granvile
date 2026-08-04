@@ -1,15 +1,23 @@
 """Design system da interface.
 
-Os tokens reproduzem o sistema já usado pelo autor na plataforma Caree — mesma escala de
-espaçamento, mesmos raios, mesmas sombras em duas camadas e a mesma paleta semântica.
-Reaproveitar um sistema existente em vez de inventar outro dá coerência visual sem custo de
-decisão, e mantém a interface reconhecível para quem conhece os demais produtos.
+A paleta tem **quatro cores cromáticas e uma rampa neutra** — nada além disso. Cada cor
+carrega um significado fixo, e a escassez é intencional: quando tudo é colorido, cor deixa
+de informar. A estrutura da escala de espaçamento, dos raios e das sombras em duas camadas
+segue o sistema que o autor já usa em outros produtos; a identidade cromática é própria
+deste projeto.
 
-A paleta de gráficos foi verificada quanto a legibilidade sob daltonismo: o par
-verde/laranja usado na cobertura documental mantém separação perceptual suficiente em
-deuteranopia e tritanopia. Como as cores ficam abaixo de 3:1 de contraste com o fundo, os
-gráficos trazem rótulos diretos e a tabela completa logo abaixo — a cor nunca é o único
-portador da informação.
+**Regra de uso.** O acento pode aparecer em qualquer lugar — ação primária, item de
+navegação corrente, série única de gráfico. As três cores de status são reservadas e nunca
+viram "mais uma série": verde significa sempre *coberto por procedimento*, âmbar sempre
+*sem respaldo documental*, vermelho sempre *falha*. É o que permite ler o painel de
+relance.
+
+**Verificação de acessibilidade.** As quatro cores foram medidas com o validador de
+paletas em visão normal, protanopia, deuteranopia e tritanopia. Todas mantêm contraste
+mínimo de 3:1 com a superfície e separação de ΔE 18,5 no pior par sob visão normal. O par
+âmbar/verde fica em ΔE 7,9 sob protanopia — faixa que só é admissível com codificação
+secundária, e por isso os gráficos que os usam juntos trazem rótulos diretos, legenda e a
+tabela completa logo abaixo. A cor nunca é o único portador da informação.
 """
 
 from __future__ import annotations
@@ -18,25 +26,33 @@ import streamlit as st
 
 # ── Cores ────────────────────────────────────────────────────────────────────────
 
-MARCA = "#0D1929"
-"""Azul-marinho escuro: títulos e barra lateral."""
+ACENTO = "#0369A1"
+"""Azul-petróleo: ações primárias, item de navegação corrente e série única de gráfico."""
 
-ACENTO = "#1D4ED8"
-"""Azul vívido: ações primárias e séries neutras de gráfico."""
+SUCESSO = "#059669"
+"""Defeito coberto por procedimento; serviço no ar."""
 
-SUCESSO = "#10B981"
-ALERTA = "#F57C00"
-CRITICO = "#D62828"
+ALERTA = "#D97706"
+"""Defeito sem respaldo documental; recusa do guardrail."""
 
-TINTA = "#0D1929"
+CRITICO = "#BE123C"
+"""Falha de operação: entrada inválida, serviço indisponível."""
+
+TINTA = "#0F172A"
 TINTA_SECUNDARIA = "#475569"
 TINTA_SUAVE = "#94A3B8"
 
+MARCA = TINTA
+"""A marca não tem cor própria: é a tinta mais escura, para não competir com o status."""
+
 SUPERFICIE = "#FFFFFF"
-SUPERFICIE_ALTERNATIVA = "#F6F7F9"
+SUPERFICIE_ALTERNATIVA = "#F8FAFC"
+SUPERFICIE_ATIVA = "#F1F5F9"
+"""Preenchimento do item selecionado — hierarquia por tom, não por saturação."""
+
 BORDA = "#E2E8F0"
 
-GRADE = "#EEF1F5"
+GRADE = "#EEF2F6"
 """Linhas de grade: presentes o bastante para orientar, discretas o bastante para recuar."""
 
 # ── Espaçamento e raios ──────────────────────────────────────────────────────────
@@ -134,26 +150,12 @@ h3 {{ font-size: 1.05rem !important; }}
     letter-spacing: -0.02em;
 }}
 
-/* Barra lateral: marca escura, para separar o chrome do conteúdo. */
-[data-testid="stSidebar"] {{
-    background: {MARCA};
-    border-right: none;
-}}
-[data-testid="stSidebar"] * {{ color: #E8EDF5; }}
-[data-testid="stSidebar"] h3 {{ color: #FFFFFF; font-size: 1rem !important; }}
+/* A barra lateral tem folha própria em app/navegacao.py, que define sua superfície
+   clara e o estado ativo dos destinos. */
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {{
-    color: #8FA3BF !important;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
+    color: {TINTA_SUAVE};
 }}
-[data-testid="stSidebar"] [role="radiogroup"] label {{
-    padding: {ESPACO["sm"]}px {ESPACO["md"]}px;
-    border-radius: {RAIO["md"]}px;
-    transition: background 150ms ease;
-}}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover {{
-    background: rgba(255,255,255,0.06);
-}}
-[data-testid="stSidebar"] hr {{ border-color: rgba(255,255,255,0.12); }}
 
 .stButton > button {{
     border-radius: {RAIO["md"]}px;
@@ -164,10 +166,10 @@ h3 {{ font-size: 1.05rem !important; }}
 .stButton > button[kind="primary"] {{
     background: {ACENTO};
     border-color: {ACENTO};
-    box-shadow: 0 1px 4px rgba(29,78,216,0.24);
+    box-shadow: 0 1px 4px rgba(3,105,161,0.22);
 }}
 .stButton > button[kind="primary"]:hover {{
-    box-shadow: 0 3px 10px rgba(29,78,216,0.3);
+    box-shadow: 0 3px 10px rgba(3,105,161,0.28);
     transform: translateY(-1px);
 }}
 

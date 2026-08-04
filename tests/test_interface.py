@@ -151,8 +151,35 @@ class TestPaginas:
         teste.run()
         assert not teste.exception, teste.exception
 
-        teste.radio[0].set_value(pagina).run()
+        teste.button(key=f"nav_{pagina}").click().run()
         assert not teste.exception, teste.exception
+        assert teste.session_state["pagina"] == pagina
+
+    def test_navegacao_expoe_todos_os_destinos(self) -> None:
+        from streamlit.testing.v1 import AppTest
+
+        teste = AppTest.from_file("app/main.py", default_timeout=120)
+        teste.run()
+
+        chaves = {b.key for b in teste.button if b.key and b.key.startswith("nav_")}
+        assert chaves == {
+            "nav_Painel",
+            "nav_Análise de evento",
+            "nav_Assistente técnico",
+            "nav_Base documental",
+        }
+
+    def test_destino_corrente_persiste_entre_execucoes(self) -> None:
+        """Sem isso o usuário volta ao painel a cada interação na página."""
+        from streamlit.testing.v1 import AppTest
+
+        teste = AppTest.from_file("app/main.py", default_timeout=120)
+        teste.run()
+        teste.button(key="nav_Base documental").click().run()
+        assert teste.session_state["pagina"] == "Base documental"
+
+        teste.run()
+        assert teste.session_state["pagina"] == "Base documental"
 
     def test_painel_exibe_a_cobertura(self) -> None:
         from streamlit.testing.v1 import AppTest
