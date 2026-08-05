@@ -8,7 +8,12 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    // `localhost` resolve para ::1 antes de 127.0.0.1 no Windows, e o padrão do Vite
+    // escuta só em um dos dois — o endereço que não coube passava a recusar conexão.
+    // `true` faz escutar em todas as interfaces, e os dois nomes respondem.
+    host: true,
     port: 5173,
+    strictPort: true,
     proxy: {
       "/api": {
         target: "http://127.0.0.1:8000",

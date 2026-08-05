@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run tokens && npm run contraste && tsc -b && vite build",
+    "tokens": "node scripts/verificar-tokens.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "contraste": "node scripts/verificar-contraste.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",

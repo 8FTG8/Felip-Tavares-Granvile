@@ -29,17 +29,33 @@ export class ApiIndisponivel extends Error {}
 export class RequisicaoRecusada extends Error {}
 
 /**
+ * A API respondeu, mas o serviço de modelos não pôde atender.
+ *
+ * Distinta de :class:`ApiIndisponivel` porque a ação corretiva é outra — subir o
+ * Ollama, não a API. Confundir as duas fazia a tela mandar reiniciar o processo que
+ * estava no ar, enquanto o que caiu continuava caído.
+ */
+export class ModeloIndisponivel extends Error {}
+
+/**
  * Traduz uma resposta de erro na exceção correspondente.
  *
- * A distinção importa na tela: recusa de validação é problema do que foi enviado e merece
- * a mensagem da API; qualquer outro erro é indisponibilidade e merece a orientação de
- * subir o serviço. Confundir os dois faz uma pergunta curta demais parecer queda do
- * sistema.
+ * São três situações com três ações corretivas diferentes, e tratá-las como uma só já
+ * custou caro duas vezes: recusa de validação é problema do que foi enviado e merece a
+ * mensagem da API; 503 é o serviço de modelos fora do ar e pede `ollama serve`; o resto
+ * é indisponibilidade da própria API. Antes, uma pergunta curta demais e um Ollama
+ * parado produziam a mesma tela dizendo que a API tinha caído.
  */
 async function lancarErro(resposta: Response, caminho: string): Promise<never> {
   if (resposta.status === 415 || resposta.status === 422) {
     const corpo = await resposta.json().catch(() => null);
     throw new RequisicaoRecusada(detalhar(corpo) ?? "Requisição recusada pela API.");
+  }
+  if (resposta.status === 503) {
+    const corpo = await resposta.json().catch(() => null);
+    throw new ModeloIndisponivel(
+      detalhar(corpo) ?? "O serviço de modelos não está respondendo.",
+    );
   }
   throw new ApiIndisponivel(`${caminho} respondeu ${resposta.status}`);
 }

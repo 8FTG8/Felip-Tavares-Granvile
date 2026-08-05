@@ -104,6 +104,16 @@ export interface CondicaoNoHistorico {
   documento: string | null;
 }
 
+/** Trecho contíguo de dias em que um mesmo defeito domina os registros. */
+export interface BlocoDeCampanha {
+  condicao: string;
+  primeiro_dia: string;
+  ultimo_dia: string;
+  dias: number;
+  /** Fração média dos eventos do dia pertencentes à condição dominante. */
+  dominancia: number;
+}
+
 export interface PainelHistorico {
   resumo: {
     total_eventos: number;
@@ -118,6 +128,7 @@ export interface PainelHistorico {
   condicoes: CondicaoNoHistorico[];
   eventos_por_dia: Record<string, number>;
   eventos_por_rpm: Record<string, number>;
+  campanhas: BlocoDeCampanha[];
 }
 
 export interface EstadoSistema {
@@ -130,12 +141,45 @@ export interface EstadoSistema {
   familias_totais: number;
 }
 
-/** Leitura de sensor, no formato emitido pelo banco corporativo. */
+/**
+ * Leitura de sensor, no formato emitido pelo banco corporativo.
+ *
+ * Os dezesseis atributos que o índice de similaridade consome aparecem nomeados: a
+ * versão anterior deste tipo declarava apenas `[atributo: string]: unknown`, o que
+ * significava que `z_kurtosos` — com o erro de digitação — compilava sem reclamação
+ * e só falhava na resposta da API.
+ *
+ * Todos são opcionais porque a API aceita o JSON como ele sai do banco, e a tela
+ * permite editá-lo à mão durante a demonstração: a validação de obrigatoriedade é da
+ * API (Pydantic), e duplicá-la aqui criaria duas fontes de verdade que divergiriam.
+ * A assinatura de índice permanece para as sete colunas redundantes que o banco
+ * ainda emite e a ingestão descarta, mas restrita aos tipos que o JSON de fato traz.
+ */
 export interface EventoSensor {
   id?: number;
   created_at?: string;
   fault?: string;
-  [atributo: string]: unknown;
+
+  rpm?: number;
+  temperature_c?: number;
+
+  z_rms_velocity_mm_s?: number;
+  x_rms_velocity_mm_s?: number;
+  z_peak_acceleration_g?: number;
+  x_peak_acceleration_g?: number;
+  z_peak_vel_comp_freq_hz?: number;
+  x_peak_vel_comp_freq_hz?: number;
+  z_rms_acceleration_g?: number;
+  x_rms_acceleration_g?: number;
+  z_kurtosis?: number;
+  x_kurtosis?: number;
+  z_crest_factor?: number;
+  x_crest_factor?: number;
+  z_high_freq_rms_accel_g?: number;
+  x_high_freq_rms_accel_g?: number;
+
+  /** Colunas redundantes do banco corporativo, aceitas e descartadas pela ingestão. */
+  [coluna: string]: number | string | undefined;
 }
 
 /** Roteamento transmitido nos cabeçalhos da resposta em fluxo. */

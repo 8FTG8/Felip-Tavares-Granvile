@@ -1,17 +1,30 @@
 /**
  * Análise de um evento de sensor.
  *
- * Entrada à esquerda, resultado à direita. O arranjo serve à demonstração: trocando o
- * caso, a resposta muda sem que a página se reorganize, e os quatro caminhos ficam
- * comparáveis lado a lado.
+ * Entrada à esquerda, resultado à direita. O arranjo serve à demonstração: trocando
+ * o caso, a resposta muda sem que a página se reorganize, e os quatro caminhos ficam
+ * comparáveis lado a lado. Abaixo de 1280px as colunas empilham — entrada em cima,
+ * resultado embaixo —, mantendo a ordem de leitura da narrativa.
  */
 
 import { useState } from "react";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { ApiIndisponivel, api, RequisicaoRecusada } from "../api/cliente";
-import type { AnaliseEvento, ContextoHistorico, EstadoSistema } from "../api/tipos";
+import { Bar, BarChart, Tooltip, XAxis } from "recharts";
+import {
+  ApiIndisponivel,
+  ModeloIndisponivel,
+  api,
+  RequisicaoRecusada,
+} from "../api/cliente";
+import type {
+  AnaliseEvento,
+  ContextoHistorico,
+  EstadoSistema,
+  EventoSensor,
+} from "../api/tipos";
+import { Moldura } from "../componentes/graficos";
 import {
   AvisoApi,
+  AvisoModelo,
   Botao,
   Campo,
   Cartao,
@@ -19,15 +32,30 @@ import {
   Dica,
   Entrada,
   Etiqueta,
-  Selecao,
+  Segmentado,
   Vazio,
-  numero,
 } from "../componentes/base";
-import { Fontes, Prosa, RodapeModelo, SeloCaminho } from "../componentes/dominio";
+import { numero } from "../formato";
+import {
+  COR,
+  CURSOR,
+  MARGEM,
+  espacoMarcacao,
+  marcacao,
+  raioBarra,
+} from "../estilo";
+import {
+  ChamadaCadastro,
+  Fontes,
+  Prosa,
+  RodapeModelo,
+  SeloCaminho,
+} from "../componentes/dominio";
+import { nomeCondicao } from "../condicoes";
 import { Topo } from "../componentes/navegacao";
 
 /** Evento do enunciado, ponto de partida da demonstração. */
-const EVENTO_EXEMPLO = {
+const EVENTO_EXEMPLO: EventoSensor = {
   id: 114387,
   created_at: "2026-06-01 21:32:53.911176+00:00",
   z_rms_velocity_mm_s: 1.517,
@@ -49,15 +77,45 @@ const EVENTO_EXEMPLO = {
   rpm: 1000.0,
 };
 
-/** Um caso por caminho de resposta (ADR-006), na ordem da demonstração. */
+/**
+ * Um caso por caminho de resposta (ADR-006), na ordem da demonstração.
+ *
+ * O rótulo nomeia o **defeito**, e a descrição, o **cenário** que ele exercita.
+ * Nenhum dos dois antecipa o caminho que o sistema vai escolher, e os botões são
+ * todos neutros: colorir cada um pela resposta que produz faria a demonstração
+ * parecer encenada — a banca veria a conclusão antes de a API ser chamada.
+ */
 const CASOS = [
-  { rotulo: "Defeito com procedimento — cocked_rotor", fault: "cocked_rotor_2" },
-  { rotulo: "Defeito sem procedimento — falta_fase", fault: "new_falta_fase_0" },
-  { rotulo: "Documentação apenas adjacente — eccentric_rotor", fault: "eccentric_rotor_2" },
-  { rotulo: "Estado do sistema — normal", fault: "normal_2" },
+  {
+    fault: "cocked_rotor_2",
+    rotulo: nomeCondicao("cocked_rotor"),
+    descricao: "Defeito com procedimento cadastrado",
+  },
+  {
+    fault: "new_falta_fase_0",
+    rotulo: nomeCondicao("falta_fase"),
+    descricao: "Defeito sem procedimento algum",
+  },
+  {
+    fault: "eccentric_rotor_2",
+    rotulo: nomeCondicao("eccentric_rotor"),
+    descricao: "Documentação apenas adjacente",
+  },
+  {
+    fault: "normal_2",
+    rotulo: nomeCondicao("normal"),
+    descricao: "Estado operacional, não falha",
+  },
 ];
 
-export function Analise({ sistema }: { sistema: EstadoSistema | null }) {
+export function Analise({
+  sistema,
+  aoCadastrar,
+}: {
+  sistema: EstadoSistema | null;
+  /** Leva ao cadastro com a condição recusada já selecionada. */
+  aoCadastrar: (condicao: string) => void;
+}) {
   const [caso, setCaso] = useState(0);
   const [json, setJson] = useState(
     JSON.stringify({ ...EVENTO_EXEMPLO, fault: CASOS[0].fault }, null, 2),
@@ -66,8 +124,11 @@ export function Analise({ sistema }: { sistema: EstadoSistema | null }) {
   const [jsonAberto, setJsonAberto] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [resultado, setResultado] = useState<AnaliseEvento | null>(null);
+  // Conta os resultados da sessão: as fontes vêm abertas apenas no primeiro.
+  const [quantos, setQuantos] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
   const [apiFora, setApiFora] = useState(false);
+  const [modeloFora, setModeloFora] = useState<string | null>(null);
 
   function trocarCaso(indice: number) {
     setCaso(indice);
@@ -79,10 +140,11 @@ export function Analise({ sistema }: { sistema: EstadoSistema | null }) {
   async function analisar() {
     setErro(null);
     setApiFora(false);
+    setModeloFora(null);
 
-    let evento: Record<string, unknown>;
+    let evento: EventoSensor;
     try {
-      evento = JSON.parse(json);
+      evento = JSON.parse(json) as EventoSensor;
     } catch (falha) {
       setErro(`JSON inválido: ${String(falha)}`);
       return;
@@ -91,8 +153,10 @@ export function Analise({ sistema }: { sistema: EstadoSistema | null }) {
     setCarregando(true);
     try {
       setResultado(await api.analisar(evento, pergunta || undefined));
+      setQuantos((n) => n + 1);
     } catch (falha) {
-      if (falha instanceof ApiIndisponivel) setApiFora(true);
+      if (falha instanceof ModeloIndisponivel) setModeloFora(falha.message);
+      else if (falha instanceof ApiIndisponivel) setApiFora(true);
       else if (falha instanceof RequisicaoRecusada) setErro(falha.message);
       else setErro(String(falha));
       setResultado(null);
@@ -109,29 +173,36 @@ export function Analise({ sistema }: { sistema: EstadoSistema | null }) {
         etiquetas={
           sistema && (
             <>
-              <Etiqueta cor="var(--color-acento)">{sistema.modelo}</Etiqueta>
+              <Etiqueta cor={COR.acento}>{sistema.modelo}</Etiqueta>
               <Etiqueta>limiar {sistema.limiar_relevancia.toFixed(3)}</Etiqueta>
             </>
           )
         }
       />
 
-      <div className="grid grid-cols-[2fr_3fr] gap-4 items-start">
-        <Cartao titulo="Evento de entrada">
-          <Campo id="caso-demo" rotulo="Caso de demonstração" className="mb-4">
-            <Selecao
-              id="caso-demo"
-              valor={caso}
-              aoMudar={(valor) => trocarCaso(Number(valor))}
-              opcoes={CASOS.map((item, indice) => ({ valor: indice, rotulo: item.rotulo }))}
-            />
-          </Campo>
+      {/* Os quatro casos ficam visíveis o tempo todo, acima das colunas. Trocar entre
+          eles é a demonstração inteira, e num menu suspenso a banca via um controle
+          abrir em vez de ver que os caminhos são um conjunto fechado e exaustivo. */}
+      <Cartao titulo="Casos de demonstração" complemento="um por caminho de resposta" className="mb-4">
+        <Segmentado
+          rotulo="Caso de demonstração"
+          valor={caso}
+          aoMudar={trocarCaso}
+          opcoes={CASOS.map((item, indice) => ({
+            valor: indice,
+            rotulo: item.rotulo,
+            descricao: item.descricao,
+          }))}
+        />
+      </Cartao>
 
+      <div className="grid grid-cols-1 xl:grid-cols-[2fr_3fr] gap-4 items-start">
+        <Cartao titulo="Evento de entrada">
           <button
             onClick={() => setJsonAberto(!jsonAberto)}
             aria-expanded={jsonAberto}
             aria-controls="json-evento"
-            className="w-full flex items-center gap-2 text-[0.8rem] text-tinta-secundaria border border-borda rounded-lg px-3 py-2 hover:bg-fundo transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento/40"
+            className="foco w-full flex items-center gap-2 text-nota text-tinta-secundaria border border-borda rounded-controle px-3 py-2 hover:bg-fundo transition"
           >
             JSON enviado à API
             <span aria-hidden="true" className="ml-auto text-tinta-suave">
@@ -144,9 +215,8 @@ export function Analise({ sistema }: { sistema: EstadoSistema | null }) {
               aria-label="JSON do evento enviado à API"
               value={json}
               onChange={(evento) => setJson(evento.target.value)}
-              rows={14}
               spellCheck={false}
-              className="w-full mt-2 text-[0.76rem] font-mono bg-superficie text-tinta border border-borda rounded-lg p-3 transition focus:border-acento focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento/40"
+              className="foco w-full mt-2 h-[var(--altura-json)] text-nota font-mono bg-superficie text-tinta border border-borda rounded-controle p-3 transition focus:border-acento"
             />
           )}
 
@@ -173,18 +243,25 @@ export function Analise({ sistema }: { sistema: EstadoSistema | null }) {
         <div>
           {apiFora ? (
             <AvisoApi />
+          ) : modeloFora ? (
+            <AvisoModelo detalhe={modeloFora} />
           ) : erro ? (
-            <Cartao className="border-critico/40">
-              <p role="alert" className="text-[0.88rem] text-critico">
+            <Cartao className="border-critico/25">
+              <p role="alert" className="text-corpo text-critico">
                 {erro}
               </p>
             </Cartao>
           ) : carregando ? (
             <Cartao>
-              <Carregando texto="Consultando histórico e procedimentos…" />
+              <Carregando texto="Consultando histórico e procedimentos…" contarTempo />
             </Cartao>
           ) : resultado ? (
-            <Resultado resultado={resultado} />
+            <Resultado
+              key={quantos}
+              resultado={resultado}
+              primeiro={quantos === 1}
+              aoCadastrar={aoCadastrar}
+            />
           ) : (
             <Cartao>
               <Vazio
@@ -202,16 +279,31 @@ export function Analise({ sistema }: { sistema: EstadoSistema | null }) {
   );
 }
 
-function Resultado({ resultado }: { resultado: AnaliseEvento }) {
+function Resultado({
+  resultado,
+  primeiro,
+  aoCadastrar,
+}: {
+  resultado: AnaliseEvento;
+  primeiro: boolean;
+  aoCadastrar: (condicao: string) => void;
+}) {
   return (
     <Cartao>
       <SeloCaminho caminho={resultado.caminho} documento={resultado.documento} />
-      <p className="text-[0.8rem] text-tinta-secundaria my-3">
-        Condição identificada: <strong className="text-tinta">{resultado.condicao}</strong> ·
-        anotada pelo operador como <code>{resultado.rotulo_bruto}</code>
+      <p className="text-nota text-tinta-secundaria my-3">
+        Condição identificada:{" "}
+        <strong className="text-tinta">{nomeCondicao(resultado.condicao)}</strong>{" "}
+        <code>{resultado.condicao}</code> · anotada pelo operador como{" "}
+        <code>{resultado.rotulo_bruto}</code>
       </p>
       <Prosa texto={resultado.recomendacao} />
-      <Fontes fontes={resultado.fontes} />
+
+      {resultado.caminho === "sem_documento" && (
+        <ChamadaCadastro condicao={resultado.condicao} aoCadastrar={aoCadastrar} />
+      )}
+
+      <Fontes fontes={resultado.fontes} inicialmenteAberto={primeiro} />
       <RodapeModelo modelo={resultado.modelo} />
     </Cartao>
   );
@@ -221,6 +313,7 @@ function Contexto({ contexto }: { contexto: ContextoHistorico }) {
   const serie = Object.entries(contexto.distribuicao_temporal)
     .map(([dia, eventos]) => ({ dia, eventos }))
     .sort((a, b) => a.dia.localeCompare(b.dia));
+  const raio = raioBarra();
 
   return (
     <Cartao
@@ -228,18 +321,18 @@ function Contexto({ contexto }: { contexto: ContextoHistorico }) {
       complemento={`${numero(contexto.total_ocorrencias_similares)} eventos`}
       className="mt-4"
     >
-      <div className="grid grid-cols-[3fr_2fr] gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-6">
         <div>
           {contexto.ocorrencias_por_condicao.map((ocorrencia) => (
             <div key={ocorrencia.condicao} className="py-2 border-b border-borda last:border-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[0.86rem] font-semibold text-tinta">
-                  {ocorrencia.condicao}
+              <div className="flex flex-wrap items-center gap-x-2">
+                <span className="text-corpo font-semibold text-tinta">
+                  {nomeCondicao(ocorrencia.condicao)}
                 </span>
-                <span className="text-[0.74rem] text-tinta-suave">
+                <span className="text-nota text-tinta-suave">
                   {ocorrencia.vizinhos} de {contexto.vizinhos.length} vizinhos
                 </span>
-                <span className="ml-auto text-[0.8rem] text-tinta-secundaria">
+                <span className="ml-auto text-nota text-tinta-secundaria">
                   {numero(ocorrencia.ocorrencias_historicas)} no histórico ·{" "}
                   {ocorrencia.frequencia_diaria.toFixed(0)}/dia
                 </span>
@@ -256,7 +349,7 @@ function Contexto({ contexto }: { contexto: ContextoHistorico }) {
           ))}
 
           {contexto.ocorrencias_por_condicao.length > 1 && (
-            <div className="mt-4 bg-fundo border-l-[3px] border-acento rounded p-3 text-[0.8rem] text-tinta-secundaria leading-relaxed">
+            <div className="mt-4 bg-fundo border-l-4 border-acento rounded-sutil p-3 text-nota text-tinta-secundaria">
               <strong className="text-tinta">
                 Os vizinhos mais próximos pertencem a famílias diferentes.
               </strong>{" "}
@@ -269,34 +362,34 @@ function Contexto({ contexto }: { contexto: ContextoHistorico }) {
         </div>
 
         <div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={serie} margin={{ left: -26, right: 4, top: 4 }}>
+          <Moldura altura="baixo">
+            <BarChart data={serie} margin={MARGEM.compacto}>
               <XAxis
                 dataKey="dia"
                 tickLine={false}
-                axisLine={{ stroke: "var(--color-borda)" }}
-                tick={{ fontSize: 10, fill: "var(--color-tinta-suave)" }}
+                axisLine={{ stroke: COR.borda }}
+                tick={marcacao()}
                 tickFormatter={(dia: string) => dia.slice(8, 10) + "/" + dia.slice(5, 7)}
-                minTickGap={16}
+                minTickGap={espacoMarcacao()}
               />
-              <Tooltip content={<Dica />} cursor={{ fill: "var(--color-grade)" }} />
-              <Bar dataKey="eventos" fill="var(--color-acento)" radius={[3, 3, 0, 0]} />
+              <Tooltip content={<Dica />} cursor={CURSOR} />
+              <Bar dataKey="eventos" fill={COR.acento} radius={[raio, raio, 0, 0]} />
             </BarChart>
-          </ResponsiveContainer>
-          <p className="text-[0.74rem] text-tinta-suave mt-1">
+          </Moldura>
+          <p className="text-nota text-tinta-suave mt-1">
             Distribuição ao longo do tempo das condições presentes na vizinhança.
           </p>
         </div>
       </div>
 
       <details className="mt-4">
-        <summary className="cursor-pointer text-[0.82rem] font-medium text-tinta-secundaria">
+        <summary className="foco cursor-pointer text-nota font-medium text-tinta-secundaria">
           Vizinhos individuais ({contexto.vizinhos.length})
         </summary>
-        <div className="overflow-x-auto border border-borda rounded-lg mt-2">
-          <table className="w-full text-[0.8rem]">
+        <div className="overflow-x-auto border border-borda rounded-controle mt-2">
+          <table className="tabular w-full text-nota">
             <thead>
-              <tr className="bg-fundo text-tinta-suave text-[0.7rem] uppercase tracking-wide">
+              <tr className="bg-fundo text-tinta-suave rotulo">
                 <th className="text-left font-semibold px-3 py-2">ID</th>
                 <th className="text-left font-semibold px-3 py-2">Registrado em</th>
                 <th className="text-left font-semibold px-3 py-2">Condição</th>
@@ -309,12 +402,14 @@ function Contexto({ contexto }: { contexto: ContextoHistorico }) {
               {contexto.vizinhos.map((vizinho) => (
                 <tr key={vizinho.id} className="border-t border-borda">
                   <td className="px-3 py-1.5 text-tinta-secundaria">{vizinho.id}</td>
-                  <td className="px-3 py-1.5 text-tinta-secundaria">
+                  <td className="px-3 py-1.5 text-tinta-secundaria whitespace-nowrap">
                     {new Date(vizinho.created_at).toLocaleString("pt-BR")}
                   </td>
-                  <td className="px-3 py-1.5 font-medium text-tinta">{vizinho.condicao}</td>
+                  <td className="px-3 py-1.5 font-medium text-tinta whitespace-nowrap">
+                    {nomeCondicao(vizinho.condicao)}
+                  </td>
                   <td className="px-3 py-1.5 text-tinta-secundaria">
-                    <code className="text-[0.74rem]">{vizinho.rotulo_bruto}</code>
+                    <code className="text-nota">{vizinho.rotulo_bruto}</code>
                   </td>
                   <td className="px-3 py-1.5 text-right text-tinta-secundaria">
                     {vizinho.rpm.toFixed(0)}

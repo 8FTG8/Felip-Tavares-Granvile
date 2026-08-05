@@ -1,28 +1,67 @@
 @import "tailwindcss";
 
-/* Design system da solução.
+/* ═══════════════════════════════════════════════════════════════════════════════
+ * DESIGN SYSTEM DA SOLUÇÃO
  *
- * Quatro cores cromáticas e uma rampa neutra — nada além disso. Cada cor carrega um
- * significado fixo, e a escassez é intencional: quando tudo é colorido, cor deixa de
- * informar.
+ * Este arquivo é a única fonte de verdade da aparência. Nenhum componente inventa
+ * um valor: se um tamanho, raio, cor ou sombra não estiver declarado aqui, ele não
+ * existe no produto. A regra é verificável — `npm run tokens` reprova qualquer
+ * arquivo em `src/` que reintroduza um valor cru.
  *
- * O acento pode aparecer em qualquer lugar (ação primária, item corrente, série única de
- * gráfico). As três cores de status são reservadas e nunca viram "mais uma série": verde
- * significa sempre *coberto por procedimento*, âmbar sempre *sem respaldo documental*,
- * vermelho sempre *falha*.
+ * O motivo não é estética. Ao longo da construção a interface acumulou vinte e duas
+ * medidas de texto distintas, todas escritas no ponto de uso. Nenhuma delas era
+ * decisão: eram ajustes locais que ninguém conseguiria justificar depois. Sete
+ * degraus escolhidos são defensáveis; vinte e dois acidentais não são.
  *
- * **Acessibilidade.** As cores foram medidas em visão normal, protanopia, deuteranopia e
- * tritanopia, contra a superfície de cada tema. No tema claro o pior par sob visão normal
- * fica em ΔE 18,5; no escuro, 16,9. O par verde/âmbar fica em ΔE 7,9 sob protanopia nos
- * dois temas — faixa admissível apenas com codificação secundária, e por isso os gráficos
- * que os usam juntos trazem rótulo direto, legenda com contagem e a tabela completa. A cor
- * nunca é o único portador da informação.
- *
- * **O tema escuro é escolhido, não invertido.** Suas cores foram selecionadas contra a
- * superfície escura e revalidadas: a faixa de luminosidade aceitável muda de L 0,43–0,77
- * para 0,48–0,67, e cores simplesmente clareadas saem dela.
- */
+ * **Tema único.** Não há variante escura. Um segundo tema dobra a superfície a
+ * validar — cada par de cores precisa ser remedido contra a nova superfície, e a
+ * faixa de luminosidade admissível é diferente — em troca de conforto de leitura que
+ * o ambiente de uso (chão de fábrica e sala de apresentação, ambos iluminados) não
+ * pede.
+ * ═══════════════════════════════════════════════════════════════════════════════ */
+
 @theme {
+  /* ── Cor ──────────────────────────────────────────────────────────────────────
+   *
+   * **Um acento cromático sobre uma base acromática fria.** Tudo que é acionável ou
+   * corrente é azul petróleo; todo o resto é cinza. As três cores de status são
+   * reservadas e nunca viram decoração: verde significa sempre *coberto por
+   * procedimento*, âmbar sempre *sem respaldo documental*, vermelho sempre *falha*.
+   *
+   * A rampa neutra puxa para o azul (não é cinza puro), e isso é decisão: neutros
+   * quentes sob um acento frio produzem uma tela suja, com o cinza parecendo bege ao
+   * lado do azul.
+   *
+   * **Séries categóricas: a paleta não cresce.** Hoje todo gráfico usa cor de status
+   * (cobertura documental) ou uma série única no acento (série temporal, rotação). No
+   * primeiro gráfico com duas ou mais séries neutras, a saída **não** é inventar uma
+   * quinta cor — a escassez aqui é o que faz verde e âmbar significarem algo. Em ordem
+   * de preferência:
+   *
+   *   1. **grandezas ordenadas** (períodos, faixas de intensidade): rampa sequencial de
+   *      um só matiz, clara→escura, derivada do acento;
+   *   2. **categorias sem ordem, poucas**: pequenos múltiplos — um gráfico por
+   *      categoria, mesma escala — em vez de séries sobrepostas;
+   *   3. **categorias muitas**: posição e rótulo carregam a identidade, e a cor não
+   *      participa. É o que as faixas de campanha da série temporal fazem: doze
+   *      campanhas, alternância neutra, nome escrito. A informação ali é *quando cada
+   *      ensaio ocorreu*, não *qual cor é qual*.
+   *
+   * **Acessibilidade — duas medições distintas, e por muito tempo só uma existia.**
+   *
+   * *Separação entre marcas.* As cores foram medidas em visão normal, protanopia,
+   * deuteranopia e tritanopia contra a superfície branca. O pior par sob visão normal
+   * fica em ΔE 18,5. O par verde/âmbar fica em ΔE 7,9 sob protanopia — faixa
+   * admissível apenas com codificação secundária, e por isso os gráficos que os usam
+   * juntos trazem rótulo direto, legenda com contagem e a tabela completa. A cor
+   * nunca é o único portador da informação.
+   *
+   * *Contraste de leitura.* Pergunta diferente, e que ficou sem resposta até a
+   * auditoria: quatro pares reprovavam a WCAG AA em silêncio. `npm run contraste`
+   * mede os 20 pares que de fato ocorrem na interface, lendo os valores deste
+   * arquivo, e roda dentro do `npm run build`. A afirmação acima agora é executável
+   * — antes era só uma frase. */
+
   --color-acento: #0369a1;
   --color-acento-suave: #e0f2fe;
   --color-sucesso: #059669;
@@ -32,79 +71,263 @@
   --color-critico: #be123c;
   --color-critico-suave: #fff1f2;
 
+  /* ── Status em texto ──────────────────────────────────────────────────────────
+   *
+   * Verde e âmbar acima foram escolhidos como **marcas de gráfico**, onde o mínimo
+   * de contraste contra o fundo é 3:1. Reaproveitados como **texto**, onde o mínimo
+   * é 4,5:1, reprovavam: 3,58 na pílula "Coberto", 3,07 na "Sem procedimento", 3,19
+   * na nota de OCR. São exigências diferentes e uma cor só não atende as duas.
+   *
+   * Estes dois degraus existem exclusivamente para texto. As cores de gráfico não
+   * mudaram — elas passam no critério que lhes cabe, e alterá-las invalidaria a
+   * validação de daltonismo já feita sobre a paleta.
+   *
+   * Medidos: verde 5,21 sobre verde-suave; âmbar 4,84 sobre âmbar-suave e 5,02
+   * sobre branco. O vermelho não precisa de degrau — #BE123C já dá 5,72. */
+
+  --color-sucesso-texto: #047857;
+  --color-alerta-texto: #b45309;
+
   --color-tinta: #0f172a;
   --color-tinta-secundaria: #475569;
-  /* Legendas e textos auxiliares: 4,8:1 sobre a superfície clara. O tom mais claro que
-   * este reprova o mínimo da WCAG AA, e o token é usado justamente nos textos menores. */
+  /* Legendas e textos auxiliares: 4,8:1 sobre a superfície. O tom mais claro que
+   * este reprova o mínimo da WCAG AA, e o token é usado justamente nos textos
+   * menores. */
   --color-tinta-suave: #64748b;
+  /* Texto sobre preenchimento cromático — botão primário, marca. Existe como token
+   * porque `text-white` seria uma afirmação sobre o tema, não sobre o contraste. */
+  --color-tinta-invertida: #ffffff;
 
-  --color-superficie: #ffffff;
-  --color-fundo: #f8fafc;
-  --color-ativo: #f1f5f9;
-  --color-borda: #e2e8f0;
-  --color-grade: #eef2f6;
+  /* Quatro degraus de superfície, do branco ao cinza de item selecionado. A
+   * diferença entre os três primeiros é de poucos por cento: a separação neste
+   * sistema vem da borda, não do contraste de fundo nem de sombra. */
+  --color-superficie: #ffffff; /* cartões, barra superior */
+  --color-fundo: #fcfcfd; /* área de conteúdo, atrás dos cartões */
+  --color-rodape: #f9fafb; /* faixa de ação no pé do cartão */
+  --color-ativo: #f1f5f9; /* item selecionado, trilho de barra */
 
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    sans-serif;
+  --color-borda: #ededf1;
+  --color-grade: #f2f2f6;
+
+  /* ── A lateral ────────────────────────────────────────────────────────────────
+   *
+   * A navegação é uma ilha escura dentro de um produto claro. Ganha rampa própria
+   * porque inverte a relação de tinta e superfície: aplicar os tokens gerais ali
+   * daria texto escuro sobre fundo escuro.
+   *
+   * O preto é **neutro puro**, e não o azul-ardósia da rampa de tinta. É a única
+   * quebra deliberada da regra de neutros frios: um preto azulado ao lado do acento
+   * azul lê como "azul muito escuro", e a lateral deixa de ser moldura para virar
+   * mais uma área colorida. Neutro puro devolve todo o azul ao item corrente. */
+
+  --color-lateral: #181818;
+  --color-lateral-elevada: #262626;
+  --color-lateral-borda: #2e2e2e;
+  --color-lateral-tinta: #fafafa;
+  --color-lateral-tinta-suave: #a1a1a1;
+
+  /* O acento e os status também precisam de degrau próprio aqui, e não apenas a
+   * tinta. Os valores gerais foram escolhidos para contrastar com **branco**: sobre
+   * preto, o âmbar #D97706 — que é um laranja médio-escuro — lê como marrom, e o
+   * verde #059669 escurece a ponto de virar mancha. Cada um sobe um degrau de
+   * luminosidade e perde saturação, que é o ajuste que superfície escura pede.
+   *
+   * O acento clareia pelo motivo oposto: #0369A1 sobre preto é um bloco pesado, e o
+   * item corrente precisa avançar, não recuar. O valor é o equilíbrio entre as duas
+   * exigências: #0570B0 dá 5,32 com o rótulo branco — acima do mínimo de 4,5:1 para
+   * texto — e 3,34 contra a lateral, acima do mínimo de 3:1 para elemento não
+   * textual. Uma primeira tentativa em #0284C7 tinha presença melhor e reprovava o
+   * rótulo, em 4,10. */
+
+  --color-lateral-acento: #0570b0;
+  --color-lateral-alerta: #f2a53d;
+  --color-lateral-sucesso: #10b981;
+  --color-lateral-critico: #fb7185;
+
+  /* ── Tipografia ───────────────────────────────────────────────────────────────
+   *
+   * Sete degraus. A hierarquia se resolve por **peso e cor** na faixa densa — título
+   * e subtítulo de cartão distam 4px, mas 200 de peso e um degrau inteiro de tinta —
+   * e por **tamanho** apenas no salto para o número em destaque, que é o único
+   * elemento da tela que precisa ser lido a três metros.
+   *
+   * A entrelinha viaja junto com o tamanho: texto pequeno precisa de mais
+   * proporcionalmente, e deixá-la solta reintroduziria pelo espaçamento a
+   * arbitrariedade que a escala eliminou.
+   *
+   * **O peso também viaja com o degrau**, e por muito tempo não viajava: a escala
+   * governava tamanho e deixava `font-medium`, `font-semibold` e `font-bold` a cargo
+   * de quem escrevia cada componente — 37 aplicações, escolhidas caso a caso. Era o
+   * mesmo padrão que produziu as vinte e duas medidas de texto, sobrevivendo no eixo
+   * que este sistema mais usa para hierarquizar.
+   *
+   * Cada degrau declara o peso que lhe é natural. Sobram quatro pesos, com papéis:
+   *
+   *   **400** corpo e notas — o texto que se lê, não o que se localiza
+   *   **500** texto funcional: rótulo de campo, item de navegação, cabeçalho de dado
+   *   **600** títulos, nomes próprios e ênfase dentro de um degrau
+   *   **700** exclusivo do número em destaque e da marca
+   *
+   * Escrever o peso continua permitido — é assim que se dá ênfase dentro de um degrau,
+   * como um nome em `text-corpo font-semibold` ao lado de prosa em `text-corpo`. O que
+   * deixou de ser preciso é repetir o peso que o degrau já tem. */
+
+  /* Rótulo em caixa alta: seções da lateral, cabeçalho de tabela, ação de rodapé.
+   * Use a classe `.rotulo`, e não `text-rotulo` — o tracking de 0,06em só faz
+   * sentido em caixa alta, e separar os dois permite aplicar metade do conceito. */
+  --text-rotulo: 0.6875rem;
+  --text-rotulo--line-height: 1.4;
+  --text-rotulo--letter-spacing: 0.06em;
+  --text-rotulo--font-weight: 600;
+
+  --text-nota: 0.75rem;
+  --text-nota--line-height: 1.45;
+  --text-nota--font-weight: 400;
+  --text-corpo: 0.875rem;
+  --text-corpo--line-height: 1.55;
+  --text-corpo--font-weight: 400;
+  /* "Forte" agora cumpre o nome: o degrau prometia peso e entregava só tamanho. */
+  --text-corpo-forte: 0.9375rem;
+  --text-corpo-forte--line-height: 1.45;
+  --text-corpo-forte--font-weight: 600;
+  --text-titulo-cartao: 1rem;
+  --text-titulo-cartao--line-height: 1.3;
+  --text-titulo-cartao--font-weight: 600;
+  --text-titulo-pagina: 1.375rem;
+  --text-titulo-pagina--line-height: 1.25;
+  --text-titulo-pagina--font-weight: 600;
+
+  --text-destaque: 2.125rem;
+  --text-destaque--line-height: 1.1;
+  --text-destaque--letter-spacing: -0.025em;
+  --text-destaque--font-weight: 700;
+
+  --font-sans: "Plus Jakarta Sans", "IBM Plex Sans", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", monospace;
 
-  --radius-cartao: 12px;
+  /* ── Raio ─────────────────────────────────────────────────────────────────────
+   *
+   * Três degraus, atribuídos por tamanho da peça: quanto maior a superfície, maior
+   * o raio, para que a curvatura pareça constante ao olho. */
 
-  /* Escala tipográfica: sete degraus, do rótulo de tabela ao número em destaque. Tamanhos
-   * fora dela seriam decisão sem critério. */
-  --text-nota: 0.72rem;
-  --text-auxiliar: 0.78rem;
-  --text-corpo: 0.86rem;
-  --text-corpo-forte: 0.92rem;
-  --text-titulo-cartao: 1rem;
-  --text-titulo-pagina: 1.6rem;
-  --text-destaque: 1.7rem;
+  --radius-sutil: 4px; /* barras de gráfico, código em linha, pílulas de estado */
+  --radius-controle: 8px; /* botões, campos, itens de navegação, tabelas */
+  --radius-cartao: 12px; /* cartões e balões de conversa */
 
-  /* Sombras em duas camadas: luz ambiente e luz direcional. */
-  --shadow-cartao: 0 1px 4px rgba(15, 23, 42, 0.03), 0 4px 14px rgba(15, 23, 42, 0.04);
+  /* ── Dimensões de layout ──────────────────────────────────────────────────────
+   *
+   * Medidas estruturais que aparecem em mais de um lugar ou que as regras
+   * responsivas precisam referenciar. */
+
+  /* ── Ponto de quebra próprio ──────────────────────────────────────────────────
+   *
+   * 1366×768 é a resolução de projetor mais provável, e cai numa faixa que os pontos
+   * do Tailwind não separam: entre `xl` (1280) e `2xl` (1536). Medida a régua, os
+   * cinco cartões de indicador ficam em 183px a 1280 — e o número em destaque, a 34px
+   * e peso 700, não cabe. Acima de 1366 ele cabe com folga.
+   *
+   * O ponto existe para essa decisão e leva o nome do motivo. */
+  --breakpoint-projetor: 1366px;
+
+  --largura-lateral: 244px;
+  --largura-lateral-media: 216px;
+  --largura-conteudo: 1440px;
+
+  /* Alturas de gráfico. Fixas, e não proporcionais, porque o eixo categórico do
+   * gráfico de cobertura tem doze faixas: abaixo disto os rótulos colidem. */
+  --altura-grafico-alto: 430px;
+  --altura-grafico: 260px;
+  --altura-grafico-baixo: 200px;
+
+  /* Painel da conversa. Limitado para que o campo de pergunta não saia da tela
+   * durante uma geração longa — o botão Enviar precisa continuar visível.
+   *
+   * O `min` com a altura da janela é o que faz isso valer também em tela de 768px:
+   * fixo em 460px, o campo de pergunta ficava abaixo da dobra justamente na tela do
+   * projetor, e a demonstração começaria com uma rolagem. */
+  --altura-conversa: min(460px, 45vh);
+
+  /* Área de edição do JSON do evento. */
+  --altura-json: 320px;
+
+  /* ── Medidas de gráfico ───────────────────────────────────────────────────────
+   *
+   * O Recharts recebe estas como números em JavaScript. Ficam aqui, e não no
+   * componente, porque `barSize={14}` é decisão de estilo tanto quanto `py-2` — e é
+   * a forma que mais facilmente escapa de uma verificação textual de classes. */
+
+  --espessura-barra: 14px;
+  --espessura-linha: 2px;
+  /* Largura reservada aos nomes de condição no eixo categórico: doze rótulos como
+   * `rolamento_combination` precisam disto para não truncar. */
+  --largura-eixo-categoria: 140px;
+  /* Distância mínima entre marcações de data, para que não colidam. */
+  --espaco-marcacao: 24px;
+
+  /* ── Camadas de empilhamento ──────────────────────────────────────────────────
+   *
+   * Três, nomeadas. Números soltos de z-index são a forma clássica de dívida de
+   * estilo: quem chega depois escreve 9999 porque não sabe contra o que compete. */
+
+  --camada-barra: 20; /* cabeçalho móvel, que rola com o conteúdo */
+  --camada-veu: 30; /* escurecimento atrás da gaveta */
+  --camada-gaveta: 40; /* a lateral, acima de tudo */
+
+  /* ── Elevação ─────────────────────────────────────────────────────────────────
+   *
+   * **A separação vem da borda, não da sombra.** Cartões são borda de 1px sobre um
+   * fundo 1% mais escuro; empilhar sombras neles produziria a tela abaulada que este
+   * sistema evita.
+   *
+   * Existiu aqui um `--shadow-cartao` a 3% de opacidade. Foi apagado na auditoria: a 3%
+   * a sombra é invisível, então o token não era uma decisão de elevação — era uma
+   * hesitação registrada em CSS, dizendo ao mesmo tempo "separo por borda" e "mas por
+   * via das dúvidas". O sistema afirma uma coisa só, e agora a cumpre.
+   *
+   * Sobra uma sombra, para o que de fato flutua acima do conteúdo e precisa se descolar
+   * do que cobre — a dica de gráfico. */
+
   --shadow-flutuante: 0 2px 8px rgba(15, 23, 42, 0.06), 0 12px 28px rgba(15, 23, 42, 0.08);
-}
 
-/* Tema escuro. As cores de gráfico mantêm o mesmo tom do tema claro — no escuro elas
- * ficam mais luminosas que a superfície, e clareá-las as levaria para fora da faixa. O
- * vermelho é a exceção: como aparece sobretudo em texto, foi escolhido pelo contraste de
- * leitura, não pela regra de marca de gráfico. */
-[data-tema="escuro"] {
-  --color-acento: #0284c7;
-  --color-acento-suave: #0c4a6e;
-  --color-sucesso: #059669;
-  --color-sucesso-suave: #064e3b;
-  --color-alerta: #d97706;
-  --color-alerta-suave: #451a03;
-  --color-critico: #fb7185;
-  --color-critico-suave: #4c0519;
+  /* ── Opacidade ────────────────────────────────────────────────────────────────
+   *
+   * Dois degraus, e só. A revisão encontrou seis valores em uso — /20, /25, /30,
+   * /40, /45 e /50 —, nenhum deles distinguível do vizinho a olho nu e nenhum
+   * escolhido: eram o número que pareceu certo no momento.
+   *
+   *   **25** — preenchimento ou borda derivados de uma cor de status, sobre a
+   *            superfície branca (`border-critico/25`).
+   *   **45** — véu sobre o conteúdo, anel de foco e elemento desabilitado.
+   *
+   * Os degraus vivem como comentário porque o modificador do Tailwind exige o
+   * literal na classe; o verificador de tokens reprova qualquer outro valor. */
 
-  --color-tinta: #e2e8f0;
-  --color-tinta-secundaria: #94a3b8;
-  --color-tinta-suave: #7c8ba1;
+  /* ── Movimento ────────────────────────────────────────────────────────────────
+   * Um único tempo, aplicado ao utilitário `transition` do Tailwind. Durações
+   * variadas sugerem que uma transição importa mais que a outra, e aqui nenhuma
+   * importa. Antes este token existia e ninguém o consumia: toda transição da
+   * interface rodava nos 150ms padrão do framework. */
 
-  --color-superficie: #1e293b;
-  --color-fundo: #0f172a;
-  --color-ativo: #273449;
-  --color-borda: #334155;
-  --color-grade: #273449;
+  --default-transition-duration: 180ms;
+  --default-transition-timing-function: ease;
 
-  --shadow-cartao: 0 1px 4px rgba(0, 0, 0, 0.24), 0 4px 14px rgba(0, 0, 0, 0.28);
-  --shadow-flutuante: 0 2px 8px rgba(0, 0, 0, 0.32), 0 12px 28px rgba(0, 0, 0, 0.4);
-
-  color-scheme: dark;
+  /* Defasagem entre os três pontos do indicador de digitação. Um passo, e não três
+   * atrasos: escritos como [0, 150, 300], a relação entre eles ficava implícita e se
+   * perdia ao primeiro ajuste. */
+  --passo-digitacao: 150ms;
 }
 
 @layer base {
   html {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    background: var(--color-fundo);
   }
 
   body {
-    background: var(--color-fundo);
     color: var(--color-tinta);
-    transition: background 200ms ease, color 200ms ease;
+    font-size: var(--text-corpo);
   }
 
   h1,
@@ -115,12 +338,12 @@
     color: var(--color-tinta);
   }
 
-  /* Identificadores, rótulos de sensor e JSON em monoespaçada: são dados, não prosa, e
-   * alinham em coluna quando aparecem em tabela. */
+  /* Identificadores, rótulos de sensor e JSON em monoespaçada: são dados, não
+   * prosa, e alinham em coluna quando aparecem em tabela. */
   code,
   pre {
     font-family: var(--font-mono);
-    font-size: 0.86em;
+    font-size: 0.9em;
   }
 
   input,
@@ -152,13 +375,58 @@
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
+  /* Quem pede menos movimento não recebe movimento nenhum — inclusive o indicador
+   * de geração, que fica parado em vez de pulsar. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
-  /* Texto de procedimento devolvido pelo modelo: markdown simples, com espaçamento de
-   * leitura em campo. */
+  /* Anel de foco. Declarado uma vez porque acessibilidade que depende de cada autor
+   * repetir a mesma cadeia de utilitários acaba faltando em algum lugar. */
+  .foco {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acento/45;
+  }
+
+  /* Foco dentro da lateral escura: o anel geral, com 45% de opacidade sobre branco,
+   * some contra o preto. Aqui ele é opaco e usa o degrau claro do acento. */
+  .foco-lateral {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lateral-acento;
+  }
+
+  /* Rótulo em caixa alta. Existe como classe única, e não como combinação de
+   * `text-rotulo uppercase`, porque a versão em duas partes já foi aplicada pela
+   * metade: uma substituição em massa levou o `uppercase` embora e deixou cabeçalhos
+   * de tabela em caixa baixa com o tracking largo de caixa alta. */
+  .rotulo {
+    @apply text-rotulo uppercase;
+  }
+
+  /* Algarismos de largura fixa.
+   *
+   * Plus Jakarta Sans é proporcional por padrão: o "1" ocupa menos que o "8", e
+   * colunas alinhadas à direita dançam linha a linha. Numa tabela de 17 condições
+   * com quatro colunas numéricas, o efeito é impossível de ignorar depois de visto.
+   *
+   * Vale também para o número em destaque dos indicadores, que muda enquanto a
+   * página carrega, e para as similaridades dos vizinhos. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Texto de procedimento devolvido pelo modelo: markdown simples, com espaçamento
+   * de leitura em campo. */
   .prosa {
-    font-size: 0.9rem;
+    font-size: var(--text-corpo);
     line-height: 1.65;
     color: var(--color-tinta-secundaria);
   }
@@ -186,6 +454,6 @@
   .prosa code {
     background: var(--color-ativo);
     padding: 1px 5px;
-    border-radius: 4px;
+    border-radius: var(--radius-sutil);
   }
 }
