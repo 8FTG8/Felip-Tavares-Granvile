@@ -24,5 +24,14 @@ httpx==0.28.1
 # A interface é um projeto separado em web/ (React + Vite + TypeScript), que consome esta
 # API por HTTP. Ver web/README.md.
 
+# Análise exploratória e validação dos modelos (notebooks/)
+# Não são dependências de execução: a API e a interface não importam nada daqui. Ficam
+# neste arquivo, e não em um separado, porque o notebook do ADR-003 é material de defesa
+# da solução — quem clonar precisa conseguir reexecutá-lo sem procurar instruções.
+matplotlib==3.9.2
+nbformat==5.10.4
+nbconvert==7.16.4
+ipykernel==6.29.5
+
 # Testes
 pytest==8.3.4

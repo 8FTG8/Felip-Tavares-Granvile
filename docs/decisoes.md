@@ -53,10 +53,22 @@ Compose.
 
 ## ADR-003 — Busca por similaridade (k-NN) como mecanismo primário; sem classificador de defeito no caminho crítico
 
-> Revisado após a análise exploratória dos dados. A versão inicial previa um classificador
+> **Revisão 1** — após a análise exploratória. A versão inicial previa um classificador
 > supervisionado em paralelo ao k-NN; a evidência empírica levou ao descarte dessa peça. O
-> histórico da revisão fica registrado de propósito — a decisão anterior era razoável *a
-> priori*, e foi a medição que a derrubou.
+> histórico fica registrado de propósito: a decisão anterior era razoável *a priori*, e foi a
+> medição que a derrubou.
+>
+> **Revisão 2 (05/08/2026)** — os números foram **reexecutados** e agora vivem em
+> `notebooks/01-classificador-e-vazamento.ipynb`. Três mudanças em relação ao que estava
+> escrito aqui:
+>
+> - os valores diferem um pouco dos registrados na primeira medição (89,8% e 12,4%, contra
+>   87,2% e 11,1%), porque aquela não deixou script e a definição de sessão não estava
+>   explicitada. Os atuais são reproduzíveis célula a célula;
+> - *"cai abaixo do baseline"* virou *"fica no nível do baseline"*, que é o que a medição
+>   sustenta com a definição de sessão mais natural;
+> - a afirmação de que fixar o rpm não alteraria o quadro (10,4%) foi **removida**: não foi
+>   reproduzida, e número não verificado não fica em documento de defesa.
 
 **Contexto.** O enunciado pede que o sistema localize ocorrências passadas com
 características próximas às do evento em análise e informe quantidade, distribuição temporal
@@ -67,15 +79,32 @@ de falhas conhecidas". Dois fatos observados nos dados delimitam a decisão:
    `"fault":"cocked_rotor_2"`. A condição é anotada manualmente pelo operador — o sistema a
    recebe, não precisa inferi-la.
 2. **Um classificador de defeito a partir das features não generaliza.** Medição em
-   `banner.csv` (166.796 eventos, 12 famílias de defeito):
+   `banner.csv` (151.064 eventos de defeito, 12 famílias), reproduzível em
+   [`notebooks/01-classificador-e-vazamento.ipynb`](../notebooks/01-classificador-e-vazamento.ipynb):
 
-   | Protocolo de validação | Modelo | Acurácia |
+   | Protocolo de validação | RandomForest | k-NN (k=5) |
    | --- | --- | --- |
-   | CV estratificada aleatória | RandomForest | 87,2% |
-   | CV estratificada aleatória | k-NN (k=5) | 63,3% |
-   | **GroupKFold por sessão de coleta** | **RandomForest** | **11,1%** |
-   | **GroupKFold por sessão de coleta** | **k-NN (k=5)** | **10,5%** |
-   | *Baseline — prever sempre a classe majoritária* | — | *11,7%* |
+   | CV estratificada aleatória | 89,8% | 65,4% |
+   | **GroupKFold por sessão de coleta** | **12,4%** | **10,3%** |
+   | *Baseline — prever sempre a classe majoritária* | *11,7%* | *11,7%* |
+
+   **A prova do vazamento é direta, não é inferência.** Um RandomForest treinado apenas com
+   o *timestamp* — nenhuma grandeza de vibração, só o relógio — atinge **99,94%** sob
+   validação aleatória, e cai a 6,5% sob GroupKFold. Um modelo sem informação física alguma
+   explica praticamente todo o resultado do modelo completo: o que a validação aleatória
+   mede é a capacidade de memorizar o calendário da bancada.
+
+   **O número honesto é uma faixa, não um valor**, porque depende de como se define sessão:
+
+   | Definição de sessão | Grupos | Acurácia |
+   | --- | --- | --- |
+   | Rótulo bruto | 120 | 10,9% |
+   | Trecho contíguo de mesmo rótulo | 159 | 12,4% |
+   | Dia de coleta | 29 | 25,0% |
+
+   Nenhuma leitura torna o classificador útil, mas registrar a faixa importa: quem refizer o
+   experimento com outra definição encontrará outro número, e é melhor que a variação já
+   esteja documentada.
 
 **Alternativas.** (a) apenas k-NN; (b) apenas classificação supervisionada; (c) detecção de
 anomalia por autoencoder; (d) k-NN e classificador em conjunto.
@@ -85,16 +114,35 @@ crítico. O tipo de defeito vem do rótulo do operador, normalizado deterministi
 (ADR-005). O classificador supervisionado é mantido apenas como experimento documentado no
 notebook de análise, fora do fluxo de produção.
 
-**Justificativa.** Os 87% da validação aleatória são inteiramente vazamento de sessão: cada
-família de defeito foi coletada em uma janela temporal quase disjunta (`correia` existe
-somente entre 27/05 e 03/06; `falta_fase`, apenas nos últimos quatro dias do histórico), de
-modo que o modelo memoriza a assinatura de cada montagem de bancada em vez da física do
-defeito. Separadas as sessões entre treino e teste, o desempenho cai **abaixo do baseline da
-classe majoritária** — o classificador não sabe nada. O caso é estrutural, não de ajuste: os
-quatro modos de falha de rolamento são mutuamente indistinguíveis (F1 entre 0,02 e 0,11,
-confusão cruzada de 19% a 27%) porque separá-los exige análise espectral de envelope, e o
-conjunto de dados contém apenas métricas escalares agregadas por leitura. Fixar o rpm não
-altera o quadro (10,4%).
+**Justificativa.** Os 89,8% da validação aleatória são vazamento de sessão. O histórico tem
+**159 trechos contíguos de mesmo rótulo** — cada um é uma montagem de bancada, com o defeito
+instalado e milhares de leituras gravadas em sequência. Leituras do mesmo trecho são quase
+idênticas entre si, e o sorteio aleatório as espalha entre treino e teste: o modelo é
+avaliado em cópias do que acabou de estudar. Duas famílias (`correia`, `polia`) têm apenas
+**duas** montagens em todo o conjunto.
+
+Separadas as sessões, o desempenho fica **no nível do baseline da classe majoritária** — em
+12,4% contra 11,7%, ou abaixo dele conforme a definição de sessão. O classificador não sabe
+nada.
+
+O caso é estrutural, não de ajuste. Entre as quatro famílias de rolamento, o acerto na
+própria classe fica **abaixo do acaso**: 0,04 a 0,18, quando chutar entre as quatro daria
+0,25. O modelo não apenas erra — erra sistematicamente para a família vizinha, o retrato de
+um atributo que não carrega a distinção pedida. Separá-las exige análise espectral de
+envelope nas frequências características (BPFI, BPFO, BSF), e o conjunto contém apenas
+escalares agregados por leitura, dos quais essa informação não sobrevive.
+
+**A contraprova está no mesmo experimento.** `falta_fase` é a menor classe do conjunto — 800
+eventos contra 17.712 da maior — e é a mais bem classificada, com F1 de **0,72**. Falta de
+fase é defeito elétrico, com assinatura em frequência característica que sobrevive à
+agregação escalar. Onde há sinal, o modelo o encontra; onde não há, ele não inventa. Isso
+separa *"o modelo está mal ajustado"* de *"os dados não contêm a resposta"*.
+
+**Ressalva registrada.** `correia` e `polia` têm duas sessões cada, e `ventoinha`, quatro:
+parte do colapso dessas três é escassez de montagens, não ausência de sinal físico. Não
+salva o classificador — as famílias de rolamento têm de 15 a 19 sessões e ainda assim ficam
+abaixo do acaso —, mas omitir a ressalva seria apresentar apenas o que confirma a tese, que
+é o mesmo defeito de método dos 89,8%.
 
 Colocar um componente com 11% de acurácia entre a entrada e a prescrição seria escolher
 construir a peça mais frágil do sistema sem necessidade alguma, já que o rótulo é fornecido.
