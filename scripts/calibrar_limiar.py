@@ -127,16 +127,27 @@ def medir(indice: IndiceDocumental) -> list[tuple[Caso, float]]:
 
 
 def escolher_limiar(medidas: list[tuple[Caso, float]]) -> tuple[float, dict]:
-    """Escolhe o corte que melhor separa os dois conjuntos, com margem máxima.
+    """Escolhe o **piso**: o corte mais alto que ainda aceita toda pergunta pertinente.
+
+    O critério é assimétrico de propósito, e essa é a decisão registrada no ADR-010-A.
+    Uma versão anterior desta função maximizava um escore simétrico — fração de
+    pertinentes aceitas mais fração de impertinentes barradas —, o que trata os dois
+    erros como igualmente caros. Sobre o conjunto atual ela devolvia 0,8590 enquanto a
+    produção operava em 0,8400: o script contradizia o código que dizia calibrar.
+
+    Os dois erros não custam o mesmo. A recusa indevida é visível, frustra o técnico
+    diante de uma pergunta legítima e ensina a não confiar no sistema. A passagem
+    indevida é contida por três defesas que continuam de pé: a primeira barreira, que é
+    determinística e resolve o caso central; o fato de o modelo receber apenas trechos do
+    documento roteado; e a instrução de sistema, que exige declarar quando o procedimento
+    não cobre o ponto perguntado.
+
+    Daí o piso. Entre os cortes que aceitam 100% das pertinentes, escolhe-se o mais alto —
+    barrando o máximo de impertinentes que ainda cabe sem recusar ninguém com razão.
 
     Os candidatos são os **pontos médios** entre valores medidos consecutivos, e não os
     valores em si: um limiar posto exatamente sobre uma medição fica à mercê da precisão
     de ponto flutuante, e a comparação ``>=`` passa a depender do último dígito.
-
-    Entre cortes de desempenho equivalente, escolhe-se o de maior margem — o mais
-    distante de qualquer medição. Um limiar colado no menor valor pertinente separaria
-    igualmente bem *neste* conjunto de calibração e quebraria à primeira consulta real
-    ligeiramente mais fraca.
     """
     pertinentes = [r for caso, r in medidas if caso.pertinente]
     impertinentes = [r for caso, r in medidas if not caso.pertinente]
@@ -146,25 +157,33 @@ def escolher_limiar(medidas: list[tuple[Caso, float]]) -> tuple[float, dict]:
     if not candidatos:
         return 0.0, {}
 
-    melhor_limiar, melhor_escore, melhor_margem, melhor_detalhe = 0.0, -1.0, -1.0, {}
+    def detalhar(limiar: float) -> dict:
+        return {
+            "pertinentes_aceitos": sum(1 for r in pertinentes if r >= limiar),
+            "pertinentes_total": len(pertinentes),
+            "impertinentes_rejeitados": sum(1 for r in impertinentes if r < limiar),
+            "impertinentes_total": len(impertinentes),
+            "margem": min(abs(limiar - v) for v in valores),
+        }
 
-    for limiar in candidatos:
-        aceitos = sum(1 for r in pertinentes if r >= limiar)
-        rejeitados = sum(1 for r in impertinentes if r < limiar)
-        escore = aceitos / len(pertinentes) + rejeitados / len(impertinentes)
-        margem = min(abs(limiar - v) for v in valores)
+    # O piso: o maior corte que não recusa nenhuma pergunta pertinente.
+    aceitam_todas = [c for c in candidatos if all(r >= c for r in pertinentes)]
+    if aceitam_todas:
+        limiar = max(aceitam_todas)
+        return limiar, detalhar(limiar)
 
-        if (escore, margem) > (melhor_escore, melhor_margem):
-            melhor_limiar, melhor_escore, melhor_margem = limiar, escore, margem
-            melhor_detalhe = {
-                "pertinentes_aceitos": aceitos,
-                "pertinentes_total": len(pertinentes),
-                "impertinentes_rejeitados": rejeitados,
-                "impertinentes_total": len(impertinentes),
-                "margem": margem,
-            }
-
-    return melhor_limiar, melhor_detalhe
+    # Sem corte que aceite todas — só acontece se alguma pertinente pontuar abaixo da
+    # menor medição, o que indica caso mal formulado. Cai no critério simétrico e o
+    # relatório mostra o erro.
+    melhor = max(
+        candidatos,
+        key=lambda c: (
+            sum(1 for r in pertinentes if r >= c) / len(pertinentes)
+            + sum(1 for r in impertinentes if r < c) / len(impertinentes),
+            min(abs(c - v) for v in valores),
+        ),
+    )
+    return melhor, detalhar(melhor)
 
 
 def _resumir(rotulo: str, valores: list[float]) -> None:

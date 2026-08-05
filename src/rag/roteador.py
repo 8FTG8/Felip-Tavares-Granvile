@@ -51,6 +51,11 @@ from src.rag.registro import RegistroDocumentos
 #: é determinística. O que escapa daqui ainda encontra o aterramento nos trechos do
 #: documento roteado e a instrução explícita de declarar quando o procedimento não cobre o
 #: ponto perguntado.
+#:
+#: `scripts/calibrar_limiar.py` calcula o piso em 0,8403 — o ponto médio entre a pergunta
+#: pertinente mais fraca e a medição imediatamente abaixo dela. O valor aqui é esse piso
+#: arredondado para baixo: três milésimos de folga custam nada em separação e evitam que o
+#: corte fique colado no caso mais frágil do conjunto de calibração.
 LIMIAR_RELEVANCIA = 0.8400
 
 TRECHOS_PADRAO = 4

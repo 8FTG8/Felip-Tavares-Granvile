@@ -652,6 +652,15 @@ totalidade. A busca híbrida com BM25, já registrada no ADR-009 como evolução
 atacaria exatamente esta limitação: termos técnicos exatos dariam ao sinal léxico a
 discriminação que o comprimento do texto rouba do sinal semântico.
 
+**Reprodutibilidade (05/08/2026).** `scripts/calibrar_limiar.py` passou a codificar este
+critério. Até então ele maximizava um escore **simétrico** — fração de pertinentes aceitas
+mais fração de impertinentes barradas — e devolvia **0,8590**, contradizendo o 0,8400 que o
+código aplicava: quem executasse o procedimento de calibração obtinha um número diferente do
+que o sistema usa. O critério simétrico trata os dois erros como igualmente caros, que é
+exatamente a premissa rejeitada acima. Com o piso codificado, o script devolve 0,8403 —
+0,8400 é esse valor arredondado para baixo — e aceita 24/24 barrando 10/20, reproduzindo a
+tabela desta decisão.
+
 Registra-se também o método: a primeira calibração não estava errada por descuido de execução,
 e sim por medir um uso que não era o real. Um número obtido com rigor sobre o conjunto errado
 continua sendo o número errado.
