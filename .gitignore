@@ -8,6 +8,15 @@ venv/
 # Dados brutos e artefatos pesados não versionados
 data/raw/
 data/processed/
+
+# O XLSX distribuído junto do banner tem os decimais corrompidos de forma
+# intermitente (0.0427 gravado como 427.0). O CSV é a única fonte confiável, e
+# versionar 21 MB de um arquivo que a própria documentação manda ignorar só
+# convidaria alguém a usá-lo por engano.
+docs/dados/banner.xlsx
+
+# Pasta de origem dos ícones; os arquivos servidos vivem em web/public/
+favicons/
 models/*.joblib
 models/*.pkl
 storage/
