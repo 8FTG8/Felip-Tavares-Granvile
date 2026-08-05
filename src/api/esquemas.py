@@ -8,7 +8,7 @@ inverter a relação. Campos desconhecidos são aceitos e descartados.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -184,6 +184,26 @@ class CondicaoNoHistorico(BaseModel):
     documento: str | None = None
 
 
+class BlocoDeCampanha(BaseModel):
+    """Trecho contíguo de dias em que um mesmo defeito domina os registros.
+
+    Sustenta visualmente o ADR-003: a data carrega informação sobre o rótulo. Um
+    classificador validado por amostragem aleatória aprende o calendário e parece
+    acertar 87%; validado por sessão, cai a 11%.
+
+    A `dominancia` não é enfeite — ela mostra que o histórico tem dois regimes, e
+    apresentar só os blocos, sem ela, exageraria o argumento.
+    """
+
+    condicao: str
+    primeiro_dia: date
+    ultimo_dia: date
+    dias: int
+    dominancia: float = Field(
+        description="Fração média dos eventos do dia pertencentes à condição dominante"
+    )
+
+
 class PainelHistorico(BaseModel):
     """Conjunto de agregações que alimenta o painel."""
 
@@ -191,6 +211,7 @@ class PainelHistorico(BaseModel):
     condicoes: list[CondicaoNoHistorico]
     eventos_por_dia: dict[str, int]
     eventos_por_rpm: dict[str, int]
+    campanhas: list[BlocoDeCampanha]
 
 
 class TurnoConversa(BaseModel):

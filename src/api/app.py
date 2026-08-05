@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from src.api.esquemas import (
     AnaliseEvento,
@@ -27,6 +27,7 @@ from src.api.esquemas import (
     EventoSensor,
     Fonte,
     OcorrenciaSimilar,
+    BlocoDeCampanha,
     PainelHistorico,
     PerguntaOpcional,
     RespostaChat,
@@ -43,7 +44,7 @@ from src.api.dependencias import (
 from src.api.estatisticas import resumir
 from src.ingestion.rotulos import DEFEITOS
 from src.rag.cadastro import CadastroInvalido, cadastrar
-from src.rag.gerador import Gerador
+from src.rag.gerador import Gerador, ModeloIndisponivel
 from src.rag.indice_documental import IndiceDocumental
 from src.rag.mapeamento import cobertura
 from src.rag.registro import RegistroDocumentos
@@ -98,6 +99,27 @@ def _montar_contexto(contexto: ContextoSimilaridade) -> ContextoHistorico:
         contexto_operacional={
             chave: round(valor, 4) for chave, valor in contexto.contexto_operacional.items()
         },
+    )
+
+
+@app.exception_handler(ModeloIndisponivel)
+def _modelo_indisponivel(_: Request, erro: ModeloIndisponivel) -> JSONResponse:
+    """Traduz a ausência do serviço de modelos em 503, e não no 500 genérico.
+
+    A distinção não é formalismo. A API é o contrato de integração (ADR-002), e um
+    supervisório que ramifica por status trata os dois de forma oposta: 500 significa
+    defeito no serviço e vira chamado de suporte; 503 significa dependência fora do ar e
+    é retentável — daí o ``Retry-After``.
+
+    Vale registrar o que **continua** funcionando com o modelo derrubado: os dois
+    caminhos de recusa e o de estado seguem respondendo 200, porque seus textos são
+    compostos em código e nunca gerados. A falha atinge apenas o caminho que precisaria
+    inventar algo, que é exatamente o desenho do ADR-004.
+    """
+    return JSONResponse(
+        status_code=503,
+        content={"detail": str(erro)},
+        headers={"Retry-After": "10"},
     )
 
 
@@ -252,6 +274,16 @@ def consultar_estatisticas(
             dia.strftime("%Y-%m-%d"): int(total)
             for dia, total in panorama.eventos_por_dia.items()
         },
+        campanhas=[
+            BlocoDeCampanha(
+                condicao=bloco.condicao,
+                primeiro_dia=bloco.primeiro_dia.date(),
+                ultimo_dia=bloco.ultimo_dia.date(),
+                dias=bloco.dias,
+                dominancia=round(bloco.dominancia, 4),
+            )
+            for bloco in panorama.campanhas
+        ],
         eventos_por_rpm={
             f"{int(rpm)}": total for rpm, total in panorama.eventos_por_rpm.items()
         },

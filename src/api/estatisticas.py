@@ -50,9 +50,72 @@ class PanoramaHistorico:
     condicoes: list[ContagemCondicao]
     eventos_por_dia: pd.Series
     eventos_por_rpm: dict[float, int]
-    janelas_por_condicao: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = field(
-        default_factory=dict
-    )
+    campanhas: list["BlocoDeCampanha"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class BlocoDeCampanha:
+    """Trecho contíguo de dias em que um mesmo defeito domina os registros.
+
+    Substituiu um `janelas_por_condicao` que guardava, por condição, o primeiro e o
+    último evento. Aquela estatística descrevia mal o histórico: `desbalanceado` é
+    ensaiado no fim de abril e volta em junho, então sua janela cobria os 47 dias
+    inteiros e se sobrepunha a todas as outras. Medida assim, a afirmação de que as
+    campanhas ocupam "janelas quase disjuntas" era simplesmente falsa.
+
+    O bloco contíguo mede o que de fato importa ao ADR-003: **a data carrega informação
+    sobre o rótulo**. Em 29 dias com defeito há 18 blocos, e a dominância revela dois
+    regimes — até 28/05 os ensaios são limpos (61% a 100% dos eventos do dia num único
+    modo de falha), de 01/06 em diante eles se sobrepõem (22% a 63%).
+
+    É essa concentração que faz um classificador validado por amostragem aleatória
+    parecer acertar 87% e cair para 11% sob validação por sessão: ele aprendeu o
+    calendário, não a vibração.
+    """
+
+    condicao: str
+    primeiro_dia: pd.Timestamp
+    ultimo_dia: pd.Timestamp
+    dias: int
+    dominancia: float
+    """Fração média dos eventos do dia que pertencem à condição dominante."""
+
+
+def _blocos_de_campanha(defeitos: pd.DataFrame) -> list[BlocoDeCampanha]:
+    """Agrupa dias consecutivos que compartilham a mesma condição dominante."""
+    if defeitos.empty:
+        return []
+
+    dias = defeitos["created_at"].dt.normalize()
+    por_dia = defeitos.groupby([dias, defeitos["condicao"]]).size().unstack(fill_value=0)
+    participacao = por_dia.div(por_dia.sum(axis=1), axis=0)
+    dominante = participacao.idxmax(axis=1)
+    fracao = participacao.max(axis=1)
+
+    blocos: list[BlocoDeCampanha] = []
+    for dia, condicao in dominante.items():
+        anterior = blocos[-1] if blocos else None
+        if anterior is not None and anterior.condicao == condicao:
+            blocos[-1] = BlocoDeCampanha(
+                condicao=condicao,
+                primeiro_dia=anterior.primeiro_dia,
+                ultimo_dia=dia,
+                dias=anterior.dias + 1,
+                # Média corrente, para não guardar a lista de frações só para isto.
+                dominancia=(anterior.dominancia * anterior.dias + fracao[dia])
+                / (anterior.dias + 1),
+            )
+        else:
+            blocos.append(
+                BlocoDeCampanha(
+                    condicao=condicao,
+                    primeiro_dia=dia,
+                    ultimo_dia=dia,
+                    dias=1,
+                    dominancia=float(fracao[dia]),
+                )
+            )
+    return blocos
 
 
 def resumir(eventos: pd.DataFrame) -> PanoramaHistorico:
@@ -101,9 +164,7 @@ def resumir(eventos: pd.DataFrame) -> PanoramaHistorico:
             float(rpm): int(total)
             for rpm, total in eventos.groupby("rpm").size().sort_index().items()
         },
-        janelas_por_condicao={
-            c.condicao: (c.primeira, c.ultima) for c in contagens if c.condicao in DEFEITOS
-        },
+        campanhas=_blocos_de_campanha(defeitos),
     )
 
 

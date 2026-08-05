@@ -18,6 +18,7 @@ poderia, ele próprio, alucinar uma explicação técnica para a ausência do do
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import ollama
@@ -142,6 +143,20 @@ def _resposta_sem_documento(decisao: Decisao) -> str:
     return "\n".join(corpo)
 
 
+class ModeloIndisponivel(RuntimeError):
+    """O serviço de modelos não pôde atender à geração.
+
+    É condição **prevista** de operação, não defeito: o Ollama pode não ter subido, ou o
+    modelo configurado pode não estar baixado naquela máquina. Existe como exceção
+    própria para que a API a traduza em 503 — e não no 500 genérico, que diz ao
+    integrador que o serviço está com bug quando ele só está sem modelo.
+
+    Atinge unicamente o caminho de prescrição. Os dois caminhos de recusa e o de estado
+    seguem respondendo com o modelo fora do ar, porque seus textos são compostos em
+    código: é a arquitetura do ADR-004 se sustentando sozinha sob falha.
+    """
+
+
 class Gerador:
     """Produz a recomendação a partir da decisão do roteador."""
 
@@ -178,11 +193,14 @@ class Gerador:
                 modelo=None,
             )
 
-        resposta = self._cliente.chat(
-            model=self._modelo,
-            messages=self._mensagens(decisao, pergunta, historico),
-            options={"temperature": TEMPERATURA, "num_predict": MAXIMO_TOKENS},
-        )
+        try:
+            resposta = self._cliente.chat(
+                model=self._modelo,
+                messages=self._mensagens(decisao, pergunta, historico),
+                options={"temperature": TEMPERATURA, "num_predict": MAXIMO_TOKENS},
+            )
+        except Exception as erro:  # noqa: BLE001 — traduzido logo abaixo
+            raise self._indisponivel(erro) from erro
 
         return Recomendacao(
             texto=resposta["message"]["content"].strip(),
@@ -197,24 +215,39 @@ class Gerador:
         decisao: Decisao,
         pergunta: str | None = None,
         historico: list[dict[str, str]] | None = None,
-    ):
+    ) -> Iterator[str]:
         """Versão incremental de :meth:`responder`, para a interface de chat.
 
         Em hardware sem GPU dedicada a geração leva dezenas de segundos, e ver o texto
         surgindo torna a espera aceitável. Os caminhos de recusa continuam instantâneos e
         são emitidos de uma vez.
+
+        **Não é uma função geradora**, e isso é deliberado. Se fosse, nada aqui rodaria
+        até o primeiro ``next()`` — que, na API, acontece depois de os cabeçalhos da
+        resposta já terem sido enviados, quando devolver 503 já é impossível. Sendo uma
+        função comum que *retorna* um gerador, a verificação abaixo executa na chamada, a
+        tempo de a API traduzir a falha em status.
         """
         if not decisao.deve_gerar:
-            yield self.responder(decisao, pergunta).texto
-            return
+            return iter([self.responder(decisao, pergunta).texto])
 
-        for parte in self._cliente.chat(
-            model=self._modelo,
-            messages=self._mensagens(decisao, pergunta, historico),
-            options={"temperature": TEMPERATURA, "num_predict": MAXIMO_TOKENS},
-            stream=True,
-        ):
-            yield parte["message"]["content"]
+        self.verificar()
+
+        def partes() -> Iterator[str]:
+            try:
+                for parte in self._cliente.chat(
+                    model=self._modelo,
+                    messages=self._mensagens(decisao, pergunta, historico),
+                    options={"temperature": TEMPERATURA, "num_predict": MAXIMO_TOKENS},
+                    stream=True,
+                ):
+                    yield parte["message"]["content"]
+            except Exception as erro:  # noqa: BLE001 — traduzido logo abaixo
+                # Cair no meio da transmissão não permite mais trocar o status; a exceção
+                # sobe e o cliente trata o fluxo interrompido.
+                raise self._indisponivel(erro) from erro
+
+        return partes()
 
     def _mensagens(
         self,
@@ -244,10 +277,43 @@ class Gerador:
         """Modelo em uso, exibido na interface para que a demonstração seja explícita."""
         return self._modelo
 
-    def disponivel(self) -> bool:
-        """Verifica se o modelo está servido localmente."""
+    def verificar(self) -> None:
+        """Confere se o modelo pode atender, levantando :class:`ModeloIndisponivel`.
+
+        Distingue os dois motivos, porque a ação corretiva é diferente: subir o serviço
+        ou baixar o modelo. Uma mensagem genérica mandaria conferir a coisa errada.
+        """
         try:
-            nomes = {m.get("model", "") for m in self._cliente.list().get("models", [])}
-            return any(nome.startswith(self._modelo.split(":")[0]) for nome in nomes)
-        except Exception:
+            catalogo = self._cliente.list().get("models", [])
+        except Exception as erro:  # noqa: BLE001 — traduzido logo abaixo
+            raise ModeloIndisponivel(
+                "O serviço de modelos (Ollama) não está respondendo. "
+                "Inicie-o com `ollama serve` e tente novamente."
+            ) from erro
+
+        familia = self._modelo.split(":")[0]
+        if not any(m.get("model", "").startswith(familia) for m in catalogo):
+            raise ModeloIndisponivel(
+                f"O modelo {self._modelo} não está instalado nesta máquina. "
+                f"Baixe-o com `ollama pull {self._modelo}`."
+            )
+
+    def disponivel(self) -> bool:
+        """Forma booleana de :meth:`verificar`, publicada em ``GET /sistema``."""
+        try:
+            self.verificar()
+            return True
+        except ModeloIndisponivel:
             return False
+
+    def _indisponivel(self, erro: Exception) -> ModeloIndisponivel:
+        """Traduz a falha do cliente, consultando o serviço para dar o motivo exato."""
+        if isinstance(erro, ModeloIndisponivel):
+            return erro
+        try:
+            self.verificar()
+        except ModeloIndisponivel as diagnostico:
+            return diagnostico
+        # O serviço responde e o modelo existe: a falha é outra, e a mensagem genérica
+        # é honesta em vez de inventar um diagnóstico.
+        return ModeloIndisponivel(f"Falha ao gerar a resposta com {self._modelo}: {erro}")
