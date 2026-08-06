@@ -90,7 +90,10 @@ export function SobreATela({ titulo, descricao, secoes }: ConteudoDaTela) {
           </div>
         </header>
 
-        <div className="max-h-[var(--altura-dialogo)] overflow-y-auto px-5 py-4">
+        {/* O navegador torna áreas roláveis focáveis por teclado, para que se possa rolar
+            com as setas, e é aqui que o foco pousa ao abrir. A classe `foco` existe para
+            que o anel seja o do design system, e não o padrão do agente de usuário. */}
+        <div className="foco max-h-[var(--altura-dialogo)] overflow-y-auto px-5 py-4">
           {secoes.map((secao) => (
             <section key={secao.rotulo} className="mb-5 last:mb-0">
               {/* Rótulo e fio, como as demais divisões do produto: o fio ocupa a
