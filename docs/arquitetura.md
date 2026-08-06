@@ -148,7 +148,7 @@ semântica, não na subida do serviço.
 | Operação | Tempo |
 | --- | ---: |
 | Ajuste do índice k-NN (uma vez, na subida) | 1,2 s |
-| Consulta k-NN | **13 ms** |
+| Consulta k-NN | **21 ms** |
 | Carga do `e5` (uma vez, na 1ª busca) | 9,2 s |
 | Busca semântica | 115 ms |
 | **Decisão de recusa (1ª barreira)** | **~0 ms** |

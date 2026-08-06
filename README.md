@@ -24,7 +24,7 @@ a respeito (prescritiva), com respaldo documental rastreável.
               ▼                                 ▼
       similaridade (k-NN)              roteador do guardrail
    16 atributos padronizados        ┌──────────┴──────────┐
-   166.796 eventos, 22 ms           │                     │
+   166.796 eventos, 21 ms           │                     │
               │              1ª barreira            2ª barreira
               │           mapa defeito→doc      limiar de relevância
               │            (dicionário)          calibrado, 0,8400
@@ -80,7 +80,7 @@ os principais:
 | --- | --- | --- |
 | LLM | Qwen2.5 Instruct, local via Ollama | Cabe na GPU de 16 GB e opera offline — o dado industrial não sai da planta (ADR-001, ADR-013) |
 | Camada de serviço | FastAPI, com a interface como cliente HTTP | O consumidor natural em ambiente industrial é o supervisório, não um navegador: a API é o contrato de integração (ADR-002) |
-| Identificação do defeito | Rótulo do operador, normalizado deterministicamente | O `fault` vem no JSON de entrada; um classificador sobre os atributos rende 11% fora de sessão, abaixo do baseline de 11,7% (ADR-003) |
+| Identificação do defeito | Rótulo do operador, normalizado deterministicamente | O `fault` vem no JSON de entrada; um classificador sobre os atributos fica no nível do baseline fora de sessão — 12,4% contra 11,7% de chutar a classe majoritária (ADR-003) |
 | Normalização | 151 grafias → 17 formas canônicas | Sem ela o guardrail recusaria 421 eventos que têm documentação (ADR-005) |
 | Busca por similaridade | k-NN global, com o defeito de cada vizinho exibido | Responde ao que o enunciado pede e é explicável: a resposta *é* a lista de vizinhos (ADR-008) |
 | Recuperação documental | Fatiamento por seção numerada, `multilingual-e5-large`, ChromaDB | Procedimentos passo a passo chegam inteiros e a citação fica verificável (ADR-009) |
@@ -154,6 +154,11 @@ web/           interface React
 
 **Pré-requisitos:** Python 3.12, Node 22 e [Ollama](https://ollama.com).
 
+A primeira execução baixa **~9 GB** e leva alguns minutos: os dois modelos do Ollama
+(2 GB + 4,7 GB) e o modelo de embeddings `multilingual-e5-large` (~2,2 GB), que o
+`sentence-transformers` busca sozinho na primeira busca semântica. Depois disso tudo fica
+em cache local e a solução opera **sem rede**.
+
 ```bash
 # 1. Ambiente Python
 python -m venv .venv
@@ -165,7 +170,9 @@ ollama pull qwen2.5:3b-instruct             # 2 GB, para demonstração em CPU
 ollama pull qwen2.5:7b-instruct             # 4,7 GB, o modelo de produção
 ollama serve
 
-# 3. API — monta os índices no primeiro acesso (~1 min)
+# 3. API — monta os índices no primeiro acesso
+#    OCR do Doc1 (digitalizado, 17 páginas) ~1 min, uma vez só; depois fica em cache.
+#    A primeira busca semântica ainda baixa o modelo de embeddings, se for a primeira vez.
 set MODELO_LLM=qwen2.5:3b-instruct          # opcional; o padrão é o 7B
 uvicorn src.api.app:app --port 8000
 

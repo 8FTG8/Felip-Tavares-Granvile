@@ -10,10 +10,13 @@ Duas observações sobre a fonte, registradas na análise exploratória:
 * ``banner.xlsx`` **não deve ser usado**: os valores decimais foram gravados de forma
   corrompida e intermitente (``0.0427`` aparece como ``427.0``, misturando texto e
   número na mesma coluna). O CSV é a única fonte confiável.
-* ``created_at`` nunca entra como atributo do modelo. Cada família de defeito foi
-  coletada em uma janela temporal quase disjunta, de modo que a data prediz o rótulo
-  quase perfeitamente — é vazamento puro. Seu lugar é na saída, alimentando a
-  distribuição temporal das ocorrências semelhantes pedida pelo enunciado.
+* ``created_at`` nunca entra como atributo do modelo. A coleta é feita por campanhas de
+  ensaio, e cada dia concentra um modo de falha — mediana de 74% dos eventos do dia numa
+  única condição (ADR-017). A data carrega, portanto, informação sobre o rótulo: um
+  RandomForest treinado **só com o relógio**, sem grandeza de vibração alguma, acerta
+  99,94% sob validação aleatória e 6,5% sob validação por sessão. É vazamento puro. O
+  lugar do ``created_at`` é na saída, alimentando a distribuição temporal das ocorrências
+  semelhantes pedida pelo enunciado.
 """
 
 from __future__ import annotations
@@ -24,7 +27,7 @@ import pandas as pd
 
 from src.ingestion.rotulos import normalizar
 
-#: Atributos usados pela busca por similaridade (ADR-007). São 18 dos 25 numéricos: as
+#: Atributos usados pela busca por similaridade (ADR-007). São 16 dos 23 numéricos: as
 #: demais colunas são transformações exatas destas — conversão de unidade (in/s ↔ mm/s,
 #: °F ↔ °C) ou derivação interna do firmware (``peak_velocity = rms_velocity × √2``).
 #: Mantê-las daria peso triplo ao eixo de velocidade na distância euclidiana.
