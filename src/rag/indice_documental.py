@@ -19,6 +19,7 @@ neste projeto, e o filtro a elimina por construção em vez de por sorte.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -52,12 +53,23 @@ class TrechoRecuperado:
         return self.trecho.citacao
 
 
+#: Serializa a carga do modelo. O ``lru_cache`` memoiza o resultado, mas não impede que
+#: duas threads entrem na função antes de a primeira terminar — e cada entrada aloca sua
+#: própria cópia de 1,1 GB. Ver o cabeçalho de `src/api/dependencias.py`.
+_carga_do_modelo = threading.Lock()
+
+
 @lru_cache(maxsize=1)
-def _modelo():
-    """Carrega o modelo de embeddings uma única vez por processo (~1,1 GB)."""
+def _carregar():
     from sentence_transformers import SentenceTransformer
 
     return SentenceTransformer(MODELO_EMBEDDINGS)
+
+
+def _modelo():
+    """Carrega o modelo de embeddings uma única vez por processo (~1,1 GB)."""
+    with _carga_do_modelo:
+        return _carregar()
 
 
 class IndiceDocumental:

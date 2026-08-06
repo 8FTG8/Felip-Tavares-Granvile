@@ -1,0 +1,37 @@
+# Serviço Python: pipeline completo e API (ADR-002, ADR-002-A).
+#
+# O torch é instalado a partir do índice de rodas para CPU. A roda padrão em Linux
+# embarca as bibliotecas CUDA e leva a imagem a mais de 5 GB, sem serventia aqui: quem
+# usa a GPU na estação de referência é o Ollama, em outro contêiner. O `e5` roda em CPU
+# e responde em 115 ms, medido.
+FROM python:3.12-slim
+
+# `libgomp1` é exigido pelo runtime ONNX do OCR (ADR-012); `curl` serve à verificação de
+# saúde declarada no compose.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+# As dependências entram antes do código para que uma alteração em `src/` não invalide a
+# camada mais cara do build.
+COPY requirements.txt ./
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r requirements.txt
+
+COPY src ./src
+COPY scripts ./scripts
+COPY pyproject.toml ./
+
+# `docs/dados`, `data` e `storage` chegam por volume — ver docker-compose.yml. O conjunto
+# de eventos tem 31 MB e não pertence à imagem; o índice vetorial e os documentos
+# cadastrados em operação precisam sobreviver ao contêiner.
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,28 @@
+# O contexto de build não deve carregar o que chega por volume, o que é ambiente local
+# nem o que já foi construído.
+
+.git/
+.gitignore
+
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+node_modules/
+web/node_modules/
+web/dist/
+
+# Entram por volume, não pela imagem.
+docs/dados/
+data/
+storage/
+*.db
+*.sqlite3
+
+# Não fazem parte da execução.
+notebooks/
+tests/
+memory/
+favicons/
+.ipynb_checkpoints/

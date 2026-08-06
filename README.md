@@ -51,8 +51,8 @@ a respeito (prescritiva), com respaldo documental rastreável.
           painel · análise · assistente · base documental
 ```
 
-Detalhamento em [docs/arquitetura.md](docs/arquitetura.md), incluindo a proposta de
-implantação em ambiente industrial.
+Detalhamento em [docs/arquitetura.md](docs/arquitetura.md), incluindo o empacotamento em
+Docker Compose e a proposta de integração em ambiente industrial.
 
 ## O guardrail
 
@@ -73,13 +73,14 @@ respondendo normalmente.
 ## Decisões técnicas
 
 Cada decisão relevante está registrada em [docs/decisoes.md](docs/decisoes.md), no formato
-contexto → alternativas → escolha → justificativa → consequências aceitas. São 18 registros;
+contexto → alternativas → escolha → justificativa → consequências aceitas. São 19 registros;
 os principais:
 
 | Decisão | Escolha | Porquê |
 | --- | --- | --- |
 | LLM | Qwen2.5 Instruct, local via Ollama | Cabe na GPU de 16 GB e opera offline — o dado industrial não sai da planta (ADR-001, ADR-013) |
 | Camada de serviço | FastAPI, com a interface como cliente HTTP | O consumidor natural em ambiente industrial é o supervisório, não um navegador: a API é o contrato de integração (ADR-002) |
+| Interface | React própria, em outro processo | Com o cliente em outra linguagem, "a interface não importa módulo algum do domínio" deixa de ser disciplina e passa a ser imposto pelo ambiente (ADR-002-A) |
 | Identificação do defeito | Rótulo do operador, normalizado deterministicamente | O `fault` vem no JSON de entrada; um classificador sobre os atributos fica no nível do baseline fora de sessão — 12,4% contra 11,7% de chutar a classe majoritária (ADR-003) |
 | Normalização | 151 grafias → 17 formas canônicas | Sem ela o guardrail recusaria 421 eventos que têm documentação (ADR-005) |
 | Busca por similaridade | k-NN global, com o defeito de cada vizinho exibido | Responde ao que o enunciado pede e é explicável: a resposta *é* a lista de vizinhos (ADR-008) |
@@ -137,6 +138,7 @@ de `src/ingestion/eventos.py`.
 data/          amostra estratificada dos eventos
 docs/          decisões técnicas, arquitetura e os dados originais
   dados/       os 6 procedimentos em PDF, o enunciado e o banner.csv completo
+notebooks/     os três experimentos que sustentam os ADRs, com as saídas gravadas
 scripts/       geração da amostra e calibração do limiar do guardrail
 src/
   ingestion/   carga dos eventos e normalização canônica dos rótulos
@@ -144,20 +146,46 @@ src/
   rag/         ingestão documental, roteador do guardrail e geração
   api/         camada FastAPI e agregações do painel
 storage/       índice vetorial, PDFs cadastrados em operação e SQLite (gerados)
-tests/         249 testes automatizados
+tests/         253 testes automatizados
 web/           interface React
   src/         telas, componentes e o design system
   scripts/     verificadores de tokens e de contraste
+  nginx.conf   serve o estático e encaminha /api ao serviço Python
+
+docker-compose.yml · Dockerfile.api · web/Dockerfile    empacotamento (ADR-002-A)
 ```
 
 ## Como executar
 
-**Pré-requisitos:** Python 3.12, Node 22 e [Ollama](https://ollama.com).
+Dois caminhos. O de Docker sobe a solução inteira e é o mais curto para quem só quer ver
+funcionando; o local é o de desenvolvimento.
 
-A primeira execução baixa **~9 GB** e leva alguns minutos: os dois modelos do Ollama
-(2 GB + 4,7 GB) e o modelo de embeddings `multilingual-e5-large` (~2,2 GB), que o
-`sentence-transformers` busca sozinho na primeira busca semântica. Depois disso tudo fica
-em cache local e a solução opera **sem rede**.
+A primeira execução baixa alguns gigabytes, em qualquer um dos dois: o modelo de
+linguagem no Ollama (2 GB no de demonstração, 4,7 GB no de produção) e o modelo de
+embeddings `multilingual-e5-large` (~2,2 GB), que o `sentence-transformers` busca sozinho
+na primeira busca semântica. Depois disso tudo fica em cache e a solução opera **sem
+rede** — nenhum dado sai da máquina.
+
+### Com Docker
+
+```bash
+docker compose up -d --build
+
+# O modelo é baixado à parte, de propósito: no `up` ele travaria a subida sem explicar.
+docker compose exec ollama ollama pull qwen2.5:3b-instruct
+```
+
+Interface em `http://localhost`, API em `http://localhost:8000`, documentação interativa
+em `http://localhost:8000/docs`. São três serviços — `api`, `web` (nginx servindo o
+estático e encaminhando `/api`) e `ollama`. O detalhamento está em
+[docs/arquitetura.md](docs/arquitetura.md) §8 e o raciocínio, no ADR-002-A.
+
+Para o modelo de produção, `MODELO_LLM=qwen2.5:7b-instruct docker compose up -d` depois
+do `pull` correspondente.
+
+### Local
+
+**Pré-requisitos:** Python 3.12, Node 22 e [Ollama](https://ollama.com).
 
 ```bash
 # 1. Ambiente Python
@@ -191,13 +219,18 @@ indisponível, e a interface diz exatamente isso.
 ## Verificação
 
 ```bash
-pytest -m "not lento"        # 249 testes, ~5 s
+pytest -m "not lento"        # 253 testes, ~5 s
 pytest                       # inclui os que exercitam o Ollama real
 cd web && npm run build      # tipos, tokens de estilo e contraste WCAG
 ```
+
+Os dois verificadores da interface rodam também dentro da imagem: uma violação do design
+system reprova `docker compose build`, não só o build local.
 
 ## Restrições atendidas
 
 - Implementação integralmente em Python.
 - Inferência, consultas e recomendações executam em estação comercial com até 32 GB de
   RAM e GPU de 16 GB — sem dependência de infraestrutura externa em tempo de operação.
+  Medido: ~2 GB de RAM e ~4,7 GB de VRAM, folga em ambos ([arquitetura.md](docs/arquitetura.md) §7).
+- Empacotamento em Docker Compose, com a GPU declarável no serviço do Ollama.

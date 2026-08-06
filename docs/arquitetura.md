@@ -181,16 +181,44 @@ GPU de 16 GB, segundos. Todo o resto — k-NN, roteamento, recuperação — som
 
 ---
 
-## 8. Implantação industrial — proposta
+## 8. Implantação
 
-> Esta seção descreve a topologia pretendida. **Não está implementada**: o que existe é a
-> API que ela consumiria.
+> **O que existe:** o empacotamento em `docker-compose.yml` — três serviços, descritos ao
+> final desta seção. **O que é proposta:** o caminho do dado a partir dos sensores
+> (MQTT/OPC-UA, broker, adaptador), que não está implementado. O diagrama abaixo mostra os
+> dois, e o texto diz qual é qual.
 
 ```
-  sensores ──MQTT/OPC-UA──► broker ──► adaptador ──HTTP──► API ──► CMMS/supervisório
-   (chão)                 (Mosquitto)  (normaliza)      (servidor)
-  ╰──────── rede OT, segregada ────────╯              ╰──── rede TI ────╯
+   ┌─────────── proposta, não implementada ───────────┐ ┌──── docker-compose.yml ────┐
+    sensores ──MQTT/OPC-UA──► broker ──► adaptador ──HTTP──► api ──► ollama
+     (chão)                (Mosquitto)  (normaliza)      (uvicorn)  (modelos)
+                                                            ▲
+   ╰──────────── rede OT, segregada ─────────────╯          │  web (nginx: estático + /api)
+                                                     rede TI ╯  ──► CMMS/supervisório
 ```
+
+### O que está implementado
+
+**Três serviços.** `api` (uvicorn), `web` (nginx servindo o build estático e encaminhando
+`/api`) e `ollama` (volume próprio para os modelos). O nginx reproduz em produção o proxy
+que o `vite.config.ts` monta em desenvolvimento — mesma origem, sem CORS, e a interface
+chama as mesmas URLs nos dois ambientes.
+
+O **broker ficou de fora**. Não existe adaptador que publique ou consuma dele, e subir um
+broker inerte seria encenar uma integração que não foi feita.
+
+**Estado que sobrevive ao contêiner.** `storage/` em volume nomeado — índice vetorial,
+registro SQLite e os PDFs cadastrados em operação (ADR-014). Mais dois volumes que evitam
+repetir download: o do `multilingual-e5-large` (~2,2 GB) e o dos modelos do Ollama.
+
+**Dados por montagem, não por imagem.** `docs/dados/` entra como volume somente leitura:
+os 31 MB do `banner.csv` não pertencem à imagem. `data/` entra gravável, para preservar o
+cache do OCR do Doc1 entre execuções.
+
+**O modelo é baixado à parte**, com `ollama pull`, e não durante o `up` — são 2 GB a
+4,7 GB que travariam a subida sem explicar o motivo.
+
+### O que é proposta
 
 **Caminho do dado.** Sensores publicam em MQTT (ou OPC-UA, conforme o CLP). Um adaptador
 consome do broker, converte o payload para o esquema de `POST /eventos/analisar` e chama a
@@ -199,11 +227,6 @@ API. O adaptador é o único componente novo, e é fino — a normalização de 
 **Segregação de rede.** O broker fica na rede OT; a API, na TI. O tráfego atravessa numa
 direção só, e nenhum dado sai da planta: modelo de linguagem e embeddings são locais, que é
 a razão registrada no ADR-001.
-
-**Empacotamento.** Docker Compose com quatro serviços — `api` (uvicorn), `web` (nginx
-servindo o build estático e encaminhando `/api`), `ollama` (volume para os modelos) e um
-`broker` opcional para demonstração. `storage/` em volume nomeado: é onde vivem o índice
-vetorial e os documentos cadastrados em operação.
 
 **Operação contínua.** O índice k-NN é reconstruído na subida (1,2 s). Com o histórico
 crescendo, a evolução natural é persistir os vetores em vez de reajustar.
@@ -233,7 +256,7 @@ anotado na entrada, e um classificador sobre os atributos rende ~12% fora de ses
 
 | Verificação | Comando | Cobre |
 | --- | --- | --- |
-| Testes | `pytest -m "not lento"` | 249 testes, ~5 s |
+| Testes | `pytest -m "not lento"` | 253 testes, ~5 s |
 | Testes com Ollama real | `pytest` | inclui geração ponta a ponta |
 | Tipos, estilo e contraste | `cd web && npm run build` | TypeScript, design system, WCAG 2.1 AA |
 

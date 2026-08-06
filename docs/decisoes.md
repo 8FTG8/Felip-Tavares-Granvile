@@ -31,6 +31,12 @@ partir dos trechos recuperados.
 
 ## ADR-002 — FastAPI para a camada de serviço e Streamlit para a interface
 
+> **Superado em parte pelo [ADR-002-A](#adr-002-a--interface-própria-em-react-no-lugar-do-streamlit).**
+> A decisão de expor a solução como API REST — que é o cerne deste registro — **permanece**
+> e é a fronteira que sustenta toda a arquitetura. O que mudou foi o cliente: a interface
+> é React, não Streamlit. O registro fica como estava, porque a escolha original era
+> razoável e foi o uso que a derrubou.
+
 **Contexto.** A entrega precisa de chat, dashboard e upload de documentos, e a integração em
 ambiente industrial é critério de diferencial.
 
@@ -48,6 +54,78 @@ lógica.
 
 **Consequências aceitas.** Dois processos para orquestrar em vez de um — resolvido com Docker
 Compose.
+
+---
+
+## ADR-002-A — Interface própria em React, no lugar do Streamlit
+
+> Complementa o ADR-002. A decisão de expor a solução como **API REST** permanece
+> intacta — é a alternativa (c) daquele registro, que na época foi descartada por custo,
+> passando a ser a escolhida. O que segue é o motivo.
+
+**Contexto.** O ADR-002 escolheu Streamlit como cliente da API por ser o caminho mais
+curto até um dashboard funcional. Ao implementar, três exigências apareceram e nenhuma
+delas cabia bem no modelo de execução do Streamlit, que **reexecuta o script inteiro a
+cada interação** e mantém o estado num dicionário de sessão:
+
+1. **Resposta transmitida em partes.** Em CPU a geração leva de 32 s a 115 s conforme o
+   modelo (ADR-013). Sem ver o texto surgindo, a espera lê como travamento. O
+   `POST /chat/fluxo` existe para isso, e consumir um fluxo HTTP dentro de um script que
+   se reinicia a cada evento é trabalhar contra a ferramenta.
+2. **Conversa com histórico.** O chat precisa de turnos anteriores para que "e se o eixo
+   estiver empenado?" faça sentido. Estado conversacional sobre reexecução total é
+   possível, mas cada widget novo acrescenta uma chance de perder o fio.
+3. **Acessibilidade e identidade visual.** O Streamlit não expõe controle sobre marcação
+   e foco, o que inviabiliza navegação por teclado, `role` correto e a verificação de
+   contraste que o ADR-015 tornou executável.
+
+**Alternativas.** (a) permanecer no Streamlit e aceitar as três limitações; (b) Streamlit
+com componentes customizados em JavaScript — que é escrever front-end mesmo, só que
+dentro de uma camada a mais; (c) interface própria em React consumindo a mesma API.
+
+**Decisão.** (c). React 19 + Vite + TypeScript + Tailwind v4, em `web/`, consumindo
+exclusivamente os sete endpoints HTTP.
+
+**Justificativa.** A tese do ADR-002 é que *a API é o contrato e a interface é apenas um
+cliente*. Com Streamlit, essa fronteira é uma promessa: nada impede um `import` de
+`src.rag.roteador` numa tela, e o dia em que alguém o fizer, a separação some sem que
+nenhum teste reclame. Com um cliente em **outro processo e outra linguagem**, a fronteira
+deixa de depender de disciplina — ela é imposta pelo ambiente de execução. A afirmação
+"a interface não importa módulo algum do domínio" passou de convenção a fato verificável.
+
+O custo real foi menor que o estimado no ADR-002 porque a API já existia, completa e
+documentada, antes da primeira linha de interface. Foi a ordem de construção — API antes
+de tela — que tornou a troca barata, e é ela o argumento a defender, não a escolha de
+biblioteca.
+
+**Consequências aceitas.** Uma cadeia de build a mais (Node) e um processo a mais em
+operação. Ambos resolvidos pelo `docker-compose.yml`, que constrói o estático e o entrega
+por nginx — o mesmo contêiner que encaminha `/api` ao serviço Python, reproduzindo em
+produção o proxy que o `vite.config.ts` monta em desenvolvimento. Isso corrige, e desta
+vez implementa, a consequência que o ADR-002 dava por resolvida.
+
+O broker MQTT descrito em `arquitetura.md` §8 **não** entrou na orquestração: não existe
+adaptador que fale com ele, e subir um broker inerte seria encenar uma integração que não
+foi feita.
+
+**O empacotamento pagou por si.** Construir a imagem e subir a pilha expôs dois defeitos
+que a máquina de desenvolvimento escondia, ambos fatais para quem clonasse o repositório:
+
+- `requirements.txt` declarava `httpx==0.28.1`, incompatível com o cliente do Ollama
+  (`httpx<0.28.0`). O ambiente local usava 0.27.2 desde sempre — o arquivo é que estava
+  errado. Num ambiente limpo, `pip install -r requirements.txt` **falhava na primeira
+  linha de instalação**, e nenhum teste podia detectar isso, porque testes rodam sobre um
+  ambiente já montado.
+- As fábricas de `src/api/dependencias.py` memoizavam com `lru_cache`, que **não é
+  atômico**. Requisições concorrentes durante a subida — o comportamento normal de um
+  cliente que repete a chamada porque a primeira ainda não voltou — entravam todas na
+  construção e alocavam cada uma sua cópia do modelo de 1,1 GB. Sob o limite de memória
+  do contêiner, o processo era encerrado e reiniciado em laço. Com 15,7 GB de RAM na
+  máquina de desenvolvimento, o mesmo defeito só desperdiçava memória em silêncio.
+
+**Consequência de método:** *empacotar é um teste*. Ele exercita a hipótese que a suíte
+não alcança — a de que o projeto se monta do zero — e é a única verificação que reproduz
+o que a banca vai fazer.
 
 ---
 

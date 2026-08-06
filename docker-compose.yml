@@ -1,0 +1,82 @@
+# Orquestração da solução (ADR-002-A).
+#
+# Três serviços: a API Python, a interface servida por nginx e o Ollama. O broker MQTT
+# descrito em `docs/arquitetura.md` §8 **não** está aqui: não existe adaptador que
+# publique ou consuma dele, e subir um broker sem ninguém falando com ele seria encenar
+# uma integração que não foi feita.
+#
+# Depois de `docker compose up -d`, baixe o modelo uma vez:
+#
+#     docker compose exec ollama ollama pull qwen2.5:3b-instruct
+#
+# O download não vai no `up` de propósito — são 2 GB (ou 4,7 GB no modelo de produção)
+# que travariam a subida sem explicar o motivo.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      # O cliente do Ollama honra esta variável sem alteração de código.
+      OLLAMA_HOST: http://ollama:11434
+      # Padrão de demonstração: em CPU o 3B responde em ~32 s contra ~115 s do 7B. Na
+      # estação com GPU de 16 GB, troque por qwen2.5:7b-instruct (ADR-013).
+      MODELO_LLM: ${MODELO_LLM:-qwen2.5:3b-instruct}
+    volumes:
+      # Os eventos e os procedimentos entregues com o projeto: 31 MB que não pertencem à
+      # imagem, e que o serviço só lê.
+      - ./docs/dados:/app/docs/dados:ro
+      # Cache da extração documental. Preserva o OCR do Doc1 — 17 páginas digitalizadas,
+      # ~1 min — entre execuções.
+      - ./data:/app/data
+      # Índice vetorial, registro SQLite e PDFs cadastrados em operação: é o estado que
+      # o ADR-014 cria em uso e que precisa sobreviver ao contêiner.
+      - storage:/app/storage
+      # O multilingual-e5-large tem ~2,2 GB e é baixado na primeira busca semântica.
+      - modelos_hf:/root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    healthcheck:
+      # `/sistema` é a rota que exercita tudo: índice k-NN, índice documental e o
+      # catálogo do Ollama. O período de carência é largo porque a primeira chamada
+      # constrói os índices e, na primeira vez de todas, ainda baixa o modelo de
+      # embeddings. Enquanto isso o serviço aparece como `starting`, não como `unhealthy`.
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/sistema"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15m
+
+  web:
+    build:
+      context: ./web
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - modelos_ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    # Para usar a GPU da estação de referência, descomente:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  storage:
+  modelos_hf:
+  modelos_ollama:

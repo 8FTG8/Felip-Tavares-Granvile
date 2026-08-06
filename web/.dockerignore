@@ -1,0 +1,6 @@
+# Contexto de build da interface. O `npm ci` reinstala tudo a partir do lockfile, então
+# mandar os 143 MB de node_modules só tornaria o build mais lento.
+
+node_modules/
+dist/
+.vite/
