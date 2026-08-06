@@ -1,17 +1,10 @@
 /**
  * Reprova pares de cor que não atendem ao contraste mínimo da WCAG 2.1 AA.
  *
- * O cabeçalho do `index.css` afirma que as cores foram medidas. Uma afirmação dessas
- * ou é verificável ou não deveria estar escrita — e ela já esteve errada: a medição
- * original cobria a **separação ΔE entre marcas de gráfico sob daltonismo** e nunca o
- * **contraste de texto** sobre os fundos tingidos. Quatro pares reprovavam em
- * silêncio, três deles porque verde e âmbar foram escolhidos como marca de gráfico
- * (mínimo 3:1) e depois reaproveitados como texto (mínimo 4,5:1).
+ * Lê os valores do próprio `index.css`, para que a medição não continue valendo depois
+ * de a paleta mudar.
  *
- * Este verificador lê os valores do próprio `index.css`, então não há como a paleta
- * mudar e a medição continuar valendo para a paleta antiga.
- *
- * Mínimos aplicados (WCAG 2.1 AA):
+ * Mínimos aplicados:
  *   4,5:1  texto abaixo de 18,66px, ou abaixo de 14px em negrito
  *   3,0:1  texto grande e elemento gráfico não textual (preenchimento, borda de foco)
  *
@@ -42,11 +35,9 @@ function razao(a, b) {
 }
 
 /**
- * Os pares que de fato ocorrem na interface.
- *
- * A lista é escrita à mão porque só quem conhece as telas sabe o que fica sobre o
- * quê — uma varredura automática de classes produziria combinações que nunca
- * acontecem e deixaria passar as que acontecem por composição.
+ * Os pares que de fato ocorrem na interface, escritos à mão: uma varredura automática
+ * de classes produziria combinações que nunca acontecem e deixaria passar as que
+ * acontecem por composição.
  */
 const PARES = [
   // Texto comum
@@ -55,6 +46,7 @@ const PARES = [
   ["nota sobre superfície", "--color-tinta-suave", "--color-superficie", 4.5],
   ["nota sobre fundo", "--color-tinta-suave", "--color-fundo", 4.5],
   ["rodapé de cartão", "--color-tinta-secundaria", "--color-rodape", 4.5],
+  ["balão do usuário", "--color-tinta-secundaria", "--color-ativo", 4.5],
 
   // Status em texto — o degrau escuro, não a cor de gráfico
   ["pílula coberta", "--color-sucesso-texto", "--color-sucesso-suave", 4.5],
@@ -80,6 +72,20 @@ const PARES = [
   ["bloco do item corrente", "--color-lateral-acento", "--color-lateral", 3],
 ];
 
+/**
+ * Separações entre superfícies. Critério diferente do da WCAG, que mede texto contra o
+ * que está atrás dele e nada diz sobre o cartão se destacar da página.
+ *
+ * O mínimo de 1,05 não vem de norma: é o degrau abaixo do qual, nesta paleta, a
+ * diferença some em projetor. Existe para que mexer num degrau não apague outro.
+ */
+const SEPARACOES = [
+  ["cartão sobre a página", "--color-superficie", "--color-fundo", 1.05],
+  ["realce de passagem sobre a página", "--color-ativo", "--color-fundo", 1.05],
+  ["item selecionado dentro do cartão", "--color-ativo", "--color-superficie", 1.05],
+  ["borda sobre o cartão", "--color-borda", "--color-superficie", 1.05],
+];
+
 const falhas = [];
 const linhas = [];
 
@@ -94,6 +100,19 @@ for (const [nome, frente, fundo, minimo] of PARES) {
 
 console.log(`\nContraste WCAG 2.1 AA — ${PARES.length} pares\n`);
 console.log(linhas.join("\n"));
+
+const separacoes = [];
+for (const [nome, frente, fundo, minimo] of SEPARACOES) {
+  const valor = razao(cor(frente), cor(fundo));
+  const passou = valor >= minimo;
+  if (!passou) falhas.push({ nome, frente, fundo, valor, minimo });
+  separacoes.push(
+    `  ${passou ? "ok     " : "REPROVA"} ${valor.toFixed(3).padStart(5)} : 1  (min ${minimo})  ${nome}`,
+  );
+}
+
+console.log(`\nSeparação entre superfícies — ${SEPARACOES.length} pares\n`);
+console.log(separacoes.join("\n"));
 
 if (falhas.length === 0) {
   console.log("\nNenhuma reprovação.\n");

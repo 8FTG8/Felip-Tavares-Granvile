@@ -5,11 +5,8 @@ import { useEffect, useState } from "react";
 /**
  * Segundos decorridos desde que `ativo` passou a ser verdadeiro.
  *
- * Existe por causa da geração do modelo, que leva dezenas de segundos em estação sem
- * GPU dedicada. Três pontinhos pulsando não dizem se o sistema está trabalhando há dois
- * segundos ou há quarenta, e numa sala de apresentação a diferença entre "está gerando"
- * e "travou" é justamente essa. O número transforma a espera em informação — e é a deixa
- * para explicar o ADR-013.
+ * A geração do modelo leva dezenas de segundos em estação sem GPU dedicada, e um
+ * indicador pulsante não distingue "gerando há dois segundos" de "travado".
  */
 export function useDecorrido(ativo: boolean): number {
   const [segundos, setSegundos] = useState(0);

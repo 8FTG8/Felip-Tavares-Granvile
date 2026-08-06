@@ -1,10 +1,8 @@
 /**
  * Reprova valores de estilo escritos fora do design system.
  *
- * Um design system que existe só na intenção volta a se dissolver na primeira
- * pressa — foi assim que a interface chegou a vinte e duas medidas de texto
- * distintas. Este verificador transforma a regra em condição de build: roda no
- * `npm run build` e falha antes de gerar o pacote.
+ * Roda dentro do `npm run build` e falha antes de gerar o pacote, o que transforma a
+ * regra do design system em condição de build em vez de convenção.
  *
  * O que é aceito no ponto de uso:
  *   • utilitários gerados a partir de `@theme` (`text-corpo`, `rounded-cartao`);
@@ -57,9 +55,8 @@ const REGRAS = [
   },
   {
     nome: "medida de gráfico em número",
-    // O Recharts recebe estilo como número em JavaScript, e nenhuma verificação de
-    // classes alcança isso: foi por aqui que barSize, strokeWidth, largura de eixo e
-    // opacidade de área voltaram a ser escritos no ponto de uso.
+    // O Recharts recebe estilo como número em JavaScript, fora do alcance de qualquer
+    // verificação de classes: barSize, strokeWidth, largura de eixo, opacidade de área.
     padrao:
       /\b(?:fontSize|barSize|strokeWidth|minTickGap|stopOpacity|barGap|barCategoryGap|innerRadius|outerRadius)[:=]\s*\{?\s*-?[\d.]/g,
     dica: "use as medidas de componentes/graficos, que leem o degrau do CSS",
@@ -75,16 +72,14 @@ const REGRAS = [
   },
   {
     nome: "opacidade fora dos dois degraus",
-    // 25 para preenchimento ou borda derivados de status; 45 para véu, anel de foco
-    // e elemento desabilitado. A revisão encontrou seis valores em uso — /20, /25,
-    // /30, /40, /45, /50 —, nenhum distinguível do vizinho a olho nu.
+    // Dois degraus: 25 para preenchimento ou borda derivados de status; 45 para véu,
+    // anel de foco e elemento desabilitado.
     padrao: /\b(?:opacity-|(?:bg|text|border|ring|fill|stroke)-[\w-]+\/)(?!25\b|45\b)\d{1,3}\b/g,
     dica: "os degraus são 25 e 45 — veja a seção Opacidade em index.css",
   },
   {
     nome: "z-index em número solto",
-    // Números soltos de empilhamento são a dívida de estilo clássica: quem chega
-    // depois escreve 9999 porque não sabe contra o que está competindo.
+    // As três camadas são nomeadas; um z-index solto não diz contra o que compete.
     padrao: /\bz-\d+\b/g,
     dica: "use z-[var(--camada-barra)], --camada-veu ou --camada-gaveta",
   },
@@ -98,8 +93,7 @@ const REGRAS = [
   },
   {
     nome: "escala de cor do Tailwind",
-    // A paleta do produto é fechada; um `slate-400` é uma quinta cor entrando pela
-    // porta dos fundos.
+    // A paleta do produto é fechada; um `slate-400` seria uma cor a mais.
     padrao:
       /\b(?:text|bg|border|ring|fill|stroke|from|to|via)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/g,
     dica: "a paleta é fechada: acento, sucesso, alerta, crítico e a rampa de tinta",
@@ -150,10 +144,9 @@ for (const caminho of arquivos(FONTE)) {
 /* ── Tokens declarados e nunca consumidos ────────────────────────────────────── */
 
 /**
- * Um token morto é tão danoso quanto um valor cru: significa que a decisão está
- * registrada num lugar e o produto obedece a outro. Foi exatamente assim que a
- * escala tipográfica original ficou declarada em `index.css` sem que um único
- * componente a usasse — o CSS afirmava sete degraus e a tela tinha vinte e dois.
+ * Um token morto significa que a decisão está registrada num lugar e o produto obedece
+ * a outro — o caso da escala tipográfica declarada em `index.css` que nenhum componente
+ * consumia.
  */
 const css = readFileSync(join(RAIZ, DEFINICOES[0]), "utf8");
 const fonte = arquivos(FONTE)

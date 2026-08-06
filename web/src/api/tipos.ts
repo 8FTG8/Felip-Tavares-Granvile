@@ -1,9 +1,8 @@
 /**
  * Contratos da API de manutenção prescritiva.
  *
- * Espelham os esquemas Pydantic de `src/api/esquemas.py`. Manter os tipos escritos à mão,
- * em vez de gerá-los do OpenAPI, é decisão consciente: são poucos e estáveis, e o arquivo
- * serve de documentação legível do que a interface consome.
+ * Espelham os esquemas Pydantic de `src/api/esquemas.py`. Escritos à mão, e não gerados
+ * do OpenAPI: são poucos e estáveis, e o arquivo documenta o que a interface consome.
  */
 
 /** Caminho de resposta escolhido pelo roteador, antes de qualquer geração de texto. */
@@ -144,16 +143,13 @@ export interface EstadoSistema {
 /**
  * Leitura de sensor, no formato emitido pelo banco corporativo.
  *
- * Os dezesseis atributos que o índice de similaridade consome aparecem nomeados: a
- * versão anterior deste tipo declarava apenas `[atributo: string]: unknown`, o que
- * significava que `z_kurtosos` — com o erro de digitação — compilava sem reclamação
- * e só falhava na resposta da API.
+ * Os dezesseis atributos que o índice de similaridade consome aparecem nomeados, para
+ * que um erro de digitação como `z_kurtosos` falhe na compilação e não na resposta da
+ * API.
  *
- * Todos são opcionais porque a API aceita o JSON como ele sai do banco, e a tela
- * permite editá-lo à mão durante a demonstração: a validação de obrigatoriedade é da
- * API (Pydantic), e duplicá-la aqui criaria duas fontes de verdade que divergiriam.
- * A assinatura de índice permanece para as sete colunas redundantes que o banco
- * ainda emite e a ingestão descarta, mas restrita aos tipos que o JSON de fato traz.
+ * Todos são opcionais: a validação de obrigatoriedade é da API (Pydantic), e duplicá-la
+ * aqui criaria duas fontes de verdade. A assinatura de índice cobre as sete colunas
+ * redundantes que o banco emite e a ingestão descarta.
  */
 export interface EventoSensor {
   id?: number;

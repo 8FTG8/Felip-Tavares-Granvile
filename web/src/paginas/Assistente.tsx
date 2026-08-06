@@ -28,10 +28,8 @@ import { Prosa, SeloCaminho } from "../componentes/dominio";
 import { Topo } from "../componentes/navegacao";
 
 /**
- * As doze famílias de defeito, ordenadas pelo nome em português.
- *
- * A lista vinha escrita à mão em ordem arbitrária e com os identificadores de banco como
- * rótulo. Agora vem do vocabulário, que é a mesma fonte usada nas outras telas.
+ * As doze famílias de defeito, ordenadas pelo nome em português. Vêm do vocabulário, a
+ * mesma fonte usada nas outras telas.
  */
 const CONDICOES = DEFEITOS_ORDENADOS;
 
@@ -65,15 +63,14 @@ export function Assistente({ sistema }: { sistema: EstadoSistema | null }) {
   const fim = useRef<HTMLDivElement>(null);
   const cancelamento = useRef<AbortController | null>(null);
 
-  // `block: "nearest"` mantém a rolagem dentro do painel da conversa. Com o
-  // comportamento suave e o padrão do navegador, cada token faria a página inteira
-  // saltar durante os trinta segundos de geração.
+  // `block: "nearest"` mantém a rolagem dentro do painel da conversa. Com o padrão do
+  // navegador, cada token faria a página inteira saltar durante a geração.
   useEffect(() => {
     fim.current?.scrollIntoView({ block: "nearest" });
   }, [conversa, parcial]);
 
-  // Sair da tela durante a geração precisa interromper a leitura do fluxo: sem isso,
-  // ela segue escrevendo em um componente desmontado.
+  // Sair da tela durante a geração interrompe a leitura do fluxo; sem isso ela segue
+  // escrevendo num componente desmontado.
   useEffect(() => () => cancelamento.current?.abort(), []);
 
   async function enviar(texto: string) {
@@ -91,13 +88,12 @@ export function Assistente({ sistema }: { sistema: EstadoSistema | null }) {
     setGerando(true);
     setApiFora(false);
     setModeloFora(null);
-    // O roteamento do turno anterior não pode continuar exibido enquanto o novo é
-    // gerado: é justamente o selo que sustenta a tese anti-alucinação.
+    // O roteamento do turno anterior não pode seguir exibido enquanto o novo é gerado:
+    // é o selo que diz de onde veio a resposta.
     setRoteamento(null);
 
-    // O fluxo entrega o texto acumulado a cada parte. Guardá-lo em uma variável
-    // local, em vez de ler o estado ao final, evita depender do agendamento
-    // assíncrono do React.
+    // O fluxo entrega o texto acumulado a cada parte. Guardá-lo numa variável local,
+    // em vez de ler o estado ao final, evita depender do agendamento do React.
     let completo = "";
 
     const controlador = new AbortController();
@@ -122,8 +118,8 @@ export function Assistente({ sistema }: { sistema: EstadoSistema | null }) {
     } catch (falha) {
       if (controlador.signal.aborted) return;
 
-      // A pergunta permanece na tela e o erro vira uma fala: apagá-la em silêncio
-      // faria a falha parecer um botão que não funciona.
+      // A pergunta permanece na tela e o erro vira uma fala; apagá-la faria a falha
+      // parecer um botão que não funciona.
       if (falha instanceof ApiIndisponivel) setApiFora(true);
       if (falha instanceof ModeloIndisponivel) setModeloFora(falha.message);
       const motivo =
@@ -161,9 +157,9 @@ export function Assistente({ sistema }: { sistema: EstadoSistema | null }) {
         }
       />
 
-      {/* O trilho de contexto vem **antes** da conversa quando as colunas empilham:
-          é ele que diz qual procedimento respondeu, e empurrá-lo para depois de uma
-          conversa longa o deixaria fora da tela justamente na hora de conferir. */}
+      {/* Com as colunas empilhadas, o trilho de contexto vem antes da conversa: é ele
+          que diz qual procedimento respondeu, e depois de uma conversa longa ficaria
+          fora da tela. */}
       <div className="grid grid-cols-1 xl:grid-cols-[3fr_1fr] gap-4 items-start">
         <div className="order-2 xl:order-1">
           <Cartao className="mb-4">
@@ -179,8 +175,8 @@ export function Assistente({ sistema }: { sistema: EstadoSistema | null }) {
                   setCondicao(valor);
                   setRoteamento(null);
                 }}
-                // O identificador acompanha o nome, e não o substitui: é ele que
-                // aparece no JSON do sensor e na citação da fonte.
+                // O identificador acompanha o nome: é ele que aparece no JSON do
+                // sensor e na citação da fonte.
                 opcoes={CONDICOES.map((item) => ({
                   valor: item,
                   rotulo: `${nomeCondicao(item)} · ${item}`,
@@ -191,8 +187,7 @@ export function Assistente({ sistema }: { sistema: EstadoSistema | null }) {
 
           {apiFora && <AvisoApi />}
           {/* Antecipa a falha em vez de esperar o usuário topar com ela: o estado do
-              modelo já chega em `GET /sistema`, e a informação estava sendo publicada
-              e ignorada. */}
+              modelo já chega em `GET /sistema`. */}
           {!apiFora && (modeloFora || sistema?.modelo_disponivel === false) && (
             <AvisoModelo detalhe={modeloFora ?? undefined} />
           )}
@@ -326,9 +321,8 @@ function Balao({
         }`}
       >
         {digitando ? (
-          /* Os pontinhos sozinhos não distinguem "gerando há dois segundos" de
-             "travou": em estação sem GPU dedicada a primeira resposta leva dezenas de
-             segundos, e numa sala as duas situações se parecem exatamente igual. */
+          /* Os pontos sozinhos não distinguem "gerando há dois segundos" de "travou",
+             e a primeira resposta leva dezenas de segundos sem GPU dedicada. */
           <div>
             <span className="flex items-center gap-1 py-1">
               {atrasosDigitacao().map((atraso) => (
@@ -368,7 +362,7 @@ function Balao({
   );
 }
 
-/** Par rótulo/valor do trilho de contexto — apresentação, não campo de formulário. */
+/** Par rótulo/valor do trilho de contexto. É apresentação, não campo de formulário. */
 function Dado({
   rotulo,
   valor,

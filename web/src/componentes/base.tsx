@@ -1,13 +1,11 @@
 /**
  * Peças visuais reaproveitadas pelas telas.
  *
- * Escritas à mão, sem biblioteca de componentes: são poucas, cabem em um arquivo e
- * cada decisão de estilo pode ser justificada. A alternativa — importar um kit
- * pronto — traria dezenas de variantes que o projeto não usa.
+ * Escritas à mão, sem biblioteca de componentes: são poucas e cabem num arquivo, e um
+ * kit pronto traria dezenas de variantes não usadas.
  *
- * Nenhum valor de estilo é escrito aqui: tamanho, raio, cor e sombra vêm dos tokens
- * de `index.css`. É este arquivo, e não o CSS, que o verificador de tokens mais
- * protege — componentes compartilhados são onde uma medida solta se multiplica.
+ * Nenhum valor de estilo é escrito aqui — tamanho, raio, cor e sombra vêm dos tokens de
+ * `index.css`, e o verificador reprova o contrário.
  */
 
 import { useRef } from "react";
@@ -36,10 +34,8 @@ export function Cartao({
   semPadding?: boolean;
 }) {
   return (
-    // A separação vem da borda, e só dela: o cartão é branco sobre um fundo 1% mais
-    // escuro, com um fio de 1px. Havia aqui uma sombra a 3% de opacidade — invisível, e
-    // por isso mesmo indefensável: dizia ao mesmo tempo "separo por borda" e "mas por
-    // via das dúvidas". Foi apagada com o token.
+    // A separação vem da borda: cartão branco sobre fundo mais escuro, com um fio de
+    // 1px e sem sombra.
     <section
       className={`bg-superficie border border-borda rounded-cartao ${
         rodape ? "overflow-hidden" : ""
@@ -61,11 +57,8 @@ export function Cartao({
 }
 
 /**
- * Faixa de ação no pé do cartão.
- *
- * Separa a leitura do dado do que se pode fazer com ele: o número fica na superfície
- * branca, a ação numa faixa levemente rebaixada. O rótulo em caixa alta e a seta
- * diagonal marcam que aquilo leva para outro lugar da aplicação, não abre um menu.
+ * Faixa de ação no pé do cartão: o dado fica na superfície branca, a ação numa faixa
+ * rebaixada. A seta diagonal indica que leva a outra tela, e não abre um menu.
  */
 export function RodapeCartao({ rotulo, onClick }: { rotulo: string; onClick: () => void }) {
   return (
@@ -134,8 +127,8 @@ export function Botao({
   type?: "button" | "submit";
 }) {
   const variantes = {
-    // A sombra deriva do próprio acento por `color-mix`: concatenar opacidade em
-    // hexadecimal produziria `var(--color-acento)35`, que o navegador descarta.
+    // A sombra deriva do acento por `color-mix`: concatenar opacidade em hexadecimal
+    // produziria `var(--color-acento)35`, que o navegador descarta.
     primario:
       "bg-acento text-tinta-invertida border-acento hover:brightness-110 shadow-[0_1px_4px_color-mix(in_srgb,var(--color-acento)_35%,transparent)]",
     secundario:
@@ -157,15 +150,11 @@ export function Botao({
 }
 
 /**
- * Controle segmentado: um conjunto fechado de opções, todas visíveis.
+ * Controle segmentado: conjunto fechado de opções, todas visíveis. Preferido a um
+ * `<select>` quando as opções são poucas e o fato de serem exaustivas é a informação.
  *
- * Preferido a um `<select>` quando o número de opções é pequeno e **o fato de serem
- * exaustivas é a informação**. Um menu esconde a lista e obriga a abri-la para saber
- * o que existe; segmentado mostra o conjunto inteiro de uma vez.
- *
- * As opções são deliberadamente neutras, sem cor por opção: onde este controle é
- * usado, colorir cada botão pelo resultado que ele produz anunciaria a resposta antes
- * de o sistema a calcular.
+ * As opções são neutras, sem cor própria: onde este controle é usado, colorir cada
+ * botão pelo resultado que produz anunciaria a resposta antes do cálculo.
  */
 export function Segmentado<T extends string | number>({
   valor,
@@ -181,15 +170,8 @@ export function Segmentado<T extends string | number>({
   const grupo = useRef<HTMLDivElement>(null);
 
   /**
-   * Navegação por setas, como um grupo de rádio exige.
-   *
-   * A versão anterior declarava `role="radiogroup"` e não implementava nada disso: um
-   * leitor de tela anunciava "grupo de opções, 1 de 4", a pessoa apertava a seta e não
-   * acontecia nada. Semântica prometida e não cumprida é pior que semântica ausente —
-   * a ausente ao menos não instrui a fazer o que não funciona.
-   *
-   * Também é útil a quem enxerga: durante a apresentação, alternar entre os quatro
-   * casos vira duas teclas em vez de quatro cliques.
+   * Navegação por setas, exigida por `role="radiogroup"`: sem ela, o leitor de tela
+   * anuncia "grupo de opções, 1 de 4" e a seta não faz nada.
    */
   function aoTeclar(evento: React.KeyboardEvent, indice: number) {
     const passo = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[evento.key];
@@ -214,9 +196,8 @@ export function Segmentado<T extends string | number>({
             key={opcao.valor}
             role="radio"
             aria-checked={ativo}
-            // Tabulação itinerante: o grupo inteiro é uma parada só, e as setas
-            // percorrem as opções. Quatro paradas seguidas fariam o teclado atravessar
-            // o controle em vez de operá-lo.
+            // Tabulação itinerante: o grupo é uma parada só, e as setas percorrem as
+            // opções.
             tabIndex={ativo ? 0 : -1}
             onKeyDown={(evento) => aoTeclar(evento, indice)}
             onClick={() => aoMudar(opcao.valor)}
@@ -244,15 +225,11 @@ export function Segmentado<T extends string | number>({
 }
 
 /**
- * Ícone em traço.
+ * Ícone em traço. O tamanho vem da escala tipográfica, para acompanhar o texto ao lado
+ * sem exigir ajuste manual a cada mudança de fonte.
  *
- * O tamanho vem da escala tipográfica, e não de um número: o ícone acompanha o
- * texto ao lado do qual aparece, então medi-lo em outra régua fazia com que cada
- * ajuste de fonte exigisse um ajuste manual de ícone que ninguém lembrava de fazer.
- *
- * A fonte Material Symbols renderiza o nome do ícone como ligadura, o que significa
- * que o texto "play_arrow" está de fato no documento. Sem `aria-hidden`, o leitor de
- * tela o anuncia junto do rótulo do botão — "play_arrow Analisar evento".
+ * Material Symbols renderiza o nome do ícone como ligadura, então o texto "play_arrow"
+ * está no documento. Sem `aria-hidden` o leitor de tela o anunciaria junto do rótulo.
  */
 export function Icone({
   nome,
@@ -301,15 +278,10 @@ export function Vazio({
 }
 
 /**
- * Espera em andamento.
+ * Espera em andamento. Com `contarTempo`, exibe os segundos decorridos e, depois de
+ * alguns, explica a demora — um indicador mudo é indistinguível de um sistema travado.
  *
- * Com `contarTempo`, exibe os segundos decorridos e, passados alguns deles, explica por
- * que a espera é longa. Não é enfeite: a geração leva dezenas de segundos em estação sem
- * GPU dedicada, e um indicador mudo é indistinguível de um sistema travado — na sala de
- * apresentação, os dois se parecem exatamente igual.
- *
- * A explicação não afirma em que hardware está rodando, porque a interface não sabe: diz
- * qual é a condição que produz a demora e deixa a conclusão para quem apresenta.
+ * A explicação não afirma em que hardware está rodando, porque a interface não sabe.
  */
 export function Carregando({
   texto,
@@ -363,15 +335,12 @@ export function AvisoApi() {
 }
 
 /**
- * Aviso de que o serviço de modelos está fora do ar.
+ * Aviso de que o serviço de modelos está fora do ar. Separado de `AvisoApi` porque a
+ * ação corretiva é subir o Ollama, não a API.
  *
- * Separado de :func:`AvisoApi` porque a ação corretiva é outra, e a mensagem antiga
- * mandava reiniciar a API — que estava no ar o tempo todo.
- *
- * O segundo parágrafo não é consolo: com o modelo derrubado, as duas barreiras do
- * guardrail continuam ativas e três dos quatro caminhos seguem respondendo, porque os
- * textos de recusa são compostos em código e nunca gerados. Dizer isso na tela
- * transforma a falha em demonstração da arquitetura.
+ * O segundo parágrafo é factual: com o modelo derrubado, as duas barreiras do guardrail
+ * continuam ativas e três dos quatro caminhos seguem respondendo, porque os textos de
+ * recusa são compostos em código e nunca gerados.
  */
 export function AvisoModelo({ detalhe }: { detalhe?: string }) {
   return (
@@ -487,11 +456,8 @@ export function Entrada({
 /* ── Gráficos ────────────────────────────────────────────────────────────────── */
 
 /**
- * Dica de gráfico.
- *
- * Definida aqui, e não em cada página, porque a dica padrão do Recharts traz fundo
- * branco fixo e sombra própria — valores que não passam pelos tokens e destoariam da
- * elevação quase nula do resto do sistema.
+ * Dica de gráfico. Definida aqui porque a dica padrão do Recharts traz fundo branco
+ * fixo e sombra própria, valores que não passam pelos tokens.
  */
 export function Dica({
   active,

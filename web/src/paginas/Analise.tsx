@@ -1,10 +1,9 @@
 /**
  * Análise de um evento de sensor.
  *
- * Entrada à esquerda, resultado à direita. O arranjo serve à demonstração: trocando
- * o caso, a resposta muda sem que a página se reorganize, e os quatro caminhos ficam
- * comparáveis lado a lado. Abaixo de 1280px as colunas empilham — entrada em cima,
- * resultado embaixo —, mantendo a ordem de leitura da narrativa.
+ * Entrada à esquerda, resultado à direita: trocando o caso, a resposta muda sem que a
+ * página se reorganize, e os quatro caminhos ficam comparáveis. Abaixo de 1280px as
+ * colunas empilham, entrada em cima.
  */
 
 import { useState } from "react";
@@ -78,12 +77,9 @@ const EVENTO_EXEMPLO: EventoSensor = {
 };
 
 /**
- * Um caso por caminho de resposta (ADR-006), na ordem da demonstração.
- *
- * O rótulo nomeia o **defeito**, e a descrição, o **cenário** que ele exercita.
- * Nenhum dos dois antecipa o caminho que o sistema vai escolher, e os botões são
- * todos neutros: colorir cada um pela resposta que produz faria a demonstração
- * parecer encenada — a banca veria a conclusão antes de a API ser chamada.
+ * Um caso por caminho de resposta (ADR-006), na ordem da demonstração. O rótulo nomeia
+ * o defeito e a descrição, o cenário; nenhum dos dois antecipa o caminho que o sistema
+ * vai escolher, e os botões são neutros pelo mesmo motivo.
  */
 const CASOS = [
   {
@@ -180,9 +176,8 @@ export function Analise({
         }
       />
 
-      {/* Os quatro casos ficam visíveis o tempo todo, acima das colunas. Trocar entre
-          eles é a demonstração inteira, e num menu suspenso a banca via um controle
-          abrir em vez de ver que os caminhos são um conjunto fechado e exaustivo. */}
+      {/* Os quatro casos ficam visíveis o tempo todo: num menu suspenso, o fato de os
+          caminhos formarem um conjunto fechado e exaustivo se perderia. */}
       <Cartao titulo="Casos de demonstração" complemento="um por caminho de resposta" className="mb-4">
         <Segmentado
           rotulo="Caso de demonstração"

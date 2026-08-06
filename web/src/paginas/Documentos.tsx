@@ -56,9 +56,9 @@ export function Documentos({
     try {
       setSucesso(await api.cadastrarDocumento(escolhida, arquivo));
       setArquivo(null);
-      // A condição cadastrada sai da lista de pendentes. Sem limpar a seleção, o
-      // estado continuaria apontando para ela enquanto o campo já mostra outra — e o
-      // próximo envio iria para a condição errada, em silêncio.
+      // A condição cadastrada sai da lista de pendentes. Sem limpar a seleção, o estado
+      // apontaria para ela enquanto o campo mostra outra, e o próximo envio iria para a
+      // condição errada.
       setCondicao("");
       if (campoArquivo.current) campoArquivo.current.value = "";
       aoCadastrar();
@@ -95,8 +95,8 @@ export function Documentos({
             cobertura.length ? `${pendentes.length} aguardando cadastro` : undefined
           }
         >
-          {/* Sem cobertura não há lista — e sem estado próprio o cartão aparecia como
-              um retângulo vazio com título, indistinguível de "nenhum defeito existe". */}
+          {/* Sem cobertura, um cartão sem estado próprio seria um retângulo vazio,
+              indistinguível de "nenhum defeito existe". */}
           {cobertura.length === 0 && (
             <Vazio
               icone="cloud_off"

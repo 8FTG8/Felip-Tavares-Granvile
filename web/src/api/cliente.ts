@@ -1,10 +1,8 @@
 /**
  * Cliente HTTP da API de manutenção prescritiva (ADR-002).
  *
- * A interface não reimplementa nenhuma regra do domínio: fala com os mesmos endpoints que
- * um supervisório ou um CMMS usaria. É o que sustenta a afirmação de que a API é o
- * contrato de integração — se a tela contivesse lógica de decisão, um segundo cliente
- * precisaria reescrevê-la.
+ * A interface não reimplementa regra de domínio: usa os mesmos endpoints que um
+ * supervisório ou um CMMS usaria.
  */
 
 import type {
@@ -17,8 +15,8 @@ import type {
   RoteamentoFluxo,
 } from "./tipos";
 
-// A conversa usa exclusivamente o fluxo: em estação sem GPU dedicada, esperar dezenas de
-// segundos sem retorno visual é inaceitável. Por isso não há um método de chat síncrono.
+// Não há método de chat síncrono: em estação sem GPU dedicada a geração leva dezenas de
+// segundos, e a conversa usa exclusivamente o fluxo.
 
 const BASE = import.meta.env.VITE_API_URL ?? "/api";
 
@@ -29,22 +27,15 @@ export class ApiIndisponivel extends Error {}
 export class RequisicaoRecusada extends Error {}
 
 /**
- * A API respondeu, mas o serviço de modelos não pôde atender.
- *
- * Distinta de :class:`ApiIndisponivel` porque a ação corretiva é outra — subir o
- * Ollama, não a API. Confundir as duas fazia a tela mandar reiniciar o processo que
- * estava no ar, enquanto o que caiu continuava caído.
+ * A API respondeu, mas o serviço de modelos não pôde atender. Distinta de
+ * `ApiIndisponivel` porque a ação corretiva é subir o Ollama, não a API.
  */
 export class ModeloIndisponivel extends Error {}
 
 /**
- * Traduz uma resposta de erro na exceção correspondente.
- *
- * São três situações com três ações corretivas diferentes, e tratá-las como uma só já
- * custou caro duas vezes: recusa de validação é problema do que foi enviado e merece a
- * mensagem da API; 503 é o serviço de modelos fora do ar e pede `ollama serve`; o resto
- * é indisponibilidade da própria API. Antes, uma pergunta curta demais e um Ollama
- * parado produziam a mesma tela dizendo que a API tinha caído.
+ * Traduz uma resposta de erro na exceção correspondente — três situações com três ações
+ * corretivas: 415/422 é o que foi enviado e merece a mensagem da API; 503 é o serviço de
+ * modelos fora do ar; o resto é indisponibilidade da própria API.
  */
 async function lancarErro(resposta: Response, caminho: string): Promise<never> {
   if (resposta.status === 415 || resposta.status === 422) {
@@ -117,14 +108,12 @@ export const api = {
   /**
    * Conversa com a resposta transmitida em partes.
    *
-   * O roteamento e as citações chegam nos cabeçalhos, antes do primeiro token: consultá-los
-   * assim evita repetir a chamada só para obter as fontes, o que dobraria o tempo de
-   * geração. Cabeçalhos HTTP são limitados a latin-1, daí a decodificação percentual — as
-   * citações têm acentuação.
+   * Roteamento e citações chegam nos cabeçalhos, antes do primeiro token, o que evita uma
+   * segunda chamada só para obter as fontes. Cabeçalhos HTTP são limitados a latin-1 e as
+   * citações têm acentuação, daí a decodificação percentual.
    *
-   * O sinal de cancelamento não é opcional na prática: a geração leva dezenas de segundos
-   * em estação sem GPU dedicada, e sair da tela nesse intervalo deixaria a leitura do fluxo
-   * escrevendo em um componente já desmontado.
+   * O sinal de cancelamento é necessário na prática: a geração leva dezenas de segundos, e
+   * sair da tela deixaria a leitura do fluxo escrevendo num componente desmontado.
    */
   conversarEmFluxo: async (
     pergunta: string,
@@ -152,8 +141,7 @@ export const api = {
     try {
       fontes = JSON.parse(decodeURIComponent(resposta.headers.get("x-fontes") ?? "[]"));
     } catch {
-      // Cabeçalho malformado não pode custar a resposta: o texto continua válido, apenas
-      // sem a lista de citações.
+      // Cabeçalho malformado não invalida o texto: segue sem a lista de citações.
       fontes = [];
     }
 

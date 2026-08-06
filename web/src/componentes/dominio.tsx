@@ -1,10 +1,9 @@
 /**
  * Componentes que carregam significado do domínio.
  *
- * A apresentação dos três caminhos de resposta é o ponto sensível da interface:
- * confundir uma recusa com uma recomendação vazia faz o técnico perder a informação
- * mais importante que o sistema tem a dar. Por isso cada caminho recebe cor, ícone
- * **e** rótulo, com uma linha explicando o que aquilo significa.
+ * Confundir uma recusa com uma recomendação vazia faz perder a informação mais
+ * importante que o sistema tem a dar, então cada caminho recebe cor, ícone e rótulo,
+ * com uma linha explicando o que significa.
  */
 
 import { useState } from "react";
@@ -57,10 +56,8 @@ export function SeloCaminho({
   const aparencia = CAMINHOS[caminho] ?? CAMINHOS.sem_condicao;
 
   return (
-    // O fundo é o tom pálido do próprio caminho, e não branco. A recusa é o momento
-    // mais importante da demonstração e era, até aqui, o elemento mais discreto da
-    // tela: uma faixa branca com um fio âmbar à esquerda passa despercebida ao lado
-    // de um cartão de prescrição cheio de texto.
+    // Fundo no tom pálido do próprio caminho, e não branco: uma faixa branca com um
+    // fio âmbar à esquerda passa despercebida ao lado de um cartão de prescrição.
     <div
       className="flex items-center gap-3 rounded-controle border border-borda border-l-4 px-4 py-3"
       style={{ borderLeftColor: aparencia.cor, background: aparencia.fundo }}
@@ -85,11 +82,9 @@ export function SeloCaminho({
 }
 
 /**
- * Seções que fundamentam a recomendação.
- *
- * A rastreabilidade é requisito, não enfeite: o técnico precisa poder abrir o
- * procedimento citado e conferir. Documentos transcritos por OCR são marcados,
- * porque o reconhecimento pode conter ruído.
+ * Seções que fundamentam a recomendação, para que o técnico possa abrir o procedimento
+ * citado e conferir. Documentos transcritos por OCR são marcados, porque o
+ * reconhecimento pode conter ruído.
  */
 export function Fontes({
   fontes,
@@ -97,12 +92,8 @@ export function Fontes({
 }: {
   fontes: Fonte[];
   /**
-   * Abre a lista já expandida.
-   *
-   * Usado no primeiro resultado da sessão: a citação verificável é a prova
-   * anti-alucinação e estava atrás de um clique, exatamente no instante em que
-   * alguém se pergunta se o modelo inventou. Nos resultados seguintes já se sabe
-   * que ela existe, e a lista volta a ficar recolhida.
+   * Abre a lista já expandida. Usado no primeiro resultado da sessão, quando ainda não
+   * se sabe que as citações existem; nos seguintes a lista volta recolhida.
    */
   inicialmenteAberto?: boolean;
 }) {
@@ -154,10 +145,7 @@ export function Fontes({
 
 /**
  * Renderização mínima de markdown — negrito, itálico, código, listas e parágrafos.
- *
- * Suficiente para o que o modelo produz, e preferível a uma dependência de markdown
- * completa: o conteúdo vem de um prompt que pede passos numerados e citações, não
- * documentos arbitrários.
+ * Suficiente para o que o prompt pede ao modelo, e evita uma dependência completa.
  */
 export function Prosa({ texto }: { texto: string }) {
   // O escape vem antes de qualquer substituição, e as únicas tags geradas adiante
@@ -188,13 +176,10 @@ export function Prosa({ texto }: { texto: string }) {
 }
 
 /**
- * Chamada para cadastrar o procedimento que falta.
- *
- * Aparece apenas quando o sistema recusou por ausência de documento — que é
- * literalmente o que o enunciado pede ("reportar que o problema é desconhecido e
- * solicitar o cadastro de um novo documento"). Embutida no resultado, e não como um
- * link para outra tela, ela fecha o ciclo do ADR-014 na frente de quem assiste: a
- * mesma condição que acabou de ser recusada volta atendida um minuto depois.
+ * Chamada para cadastrar o procedimento que falta. Aparece só quando o sistema recusou
+ * por ausência de documento, que é o que o enunciado pede — "reportar que o problema é
+ * desconhecido e solicitar o cadastro de um novo documento". Fica embutida no
+ * resultado, e não como link para outra tela, para fechar o ciclo do ADR-014.
  */
 export function ChamadaCadastro({
   condicao,

@@ -1,11 +1,8 @@
 /**
- * Moldura de gráfico com altura vinda de token.
+ * Moldura de gráfico com altura vinda de token: nenhuma página escreve altura em
+ * pixels, só o nome de um degrau — baixo, médio ou alto.
  *
- * Existe para que nenhuma página escreva uma altura em pixels: ela passa a ser o
- * nome de um degrau — baixo, médio ou alto — e não um número negociado no local.
- *
- * As cores, medidas e margens que os gráficos consomem ficam em `src/estilo.ts`,
- * junto com a leitura dos tokens.
+ * Cores, medidas e margens ficam em `src/estilo.ts`.
  */
 
 import type { ReactNode } from "react";

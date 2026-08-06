@@ -1,29 +1,23 @@
 /**
  * Ponte entre o design system e o que precisa de valores em JavaScript.
  *
- * Nem tudo consome estilo por classe. O Recharts recebe tamanho, espessura, altura e
- * margem como **números**; uma animação escalonada precisa do atraso em
- * milissegundos. É o ponto onde valores crus mais facilmente voltam a aparecer, e
- * onde reapareceriam sem que o verificador de tokens percebesse, porque
- * `barSize={14}` não é sintaxe de CSS.
+ * O Recharts recebe tamanho, espessura, altura e margem como números, e uma animação
+ * escalonada precisa do atraso em milissegundos — casos que escapam ao verificador de
+ * tokens, porque `barSize={14}` não é sintaxe de CSS. Em vez de repetir os valores,
+ * este módulo lê os tokens do documento, o que impede a escala do CSS e a dos gráficos
+ * de divergirem.
  *
- * A solução é ler os próprios tokens do documento em vez de repeti-los aqui. Custa
- * uma leitura de estilo computado por token e por sessão, e elimina a possibilidade
- * de a escala do CSS e a dos gráficos divergirem — que foi exatamente o que
- * aconteceu antes, com eixos em 10px e 11px que não correspondiam a degrau algum.
- *
- * Este é o único arquivo autorizado a passar número a uma propriedade de estilo. O
- * verificador reprova qualquer outro.
+ * É o único arquivo autorizado a passar número a uma propriedade de estilo.
  */
 
 /**
- * Valor numérico de um token, na unidade em que foi declarado — pixels para medidas,
- * milissegundos para tempos. `rem` é convertido para pixels, porque é isso que o
- * Recharts espera.
+ * Valor numérico de um token, na unidade declarada — pixels para medidas,
+ * milissegundos para tempos. `rem` é convertido para pixels, que é o que o Recharts
+ * espera.
  *
- * A leitura é preguiçosa e memoizada: no momento em que um módulo é avaliado a folha
- * de estilo pode ainda não estar aplicada, e um zero silencioso produziria gráficos
- * sem rótulo. Consultada na primeira renderização, ela já está.
+ * A leitura é preguiçosa e memoizada: no momento em que o módulo é avaliado a folha de
+ * estilo pode ainda não estar aplicada, e um zero silencioso produziria gráficos sem
+ * rótulo.
  */
 const cache = new Map<string, number>();
 
@@ -37,8 +31,8 @@ export function medida(token: string): number {
   const base = parseFloat(estilo.fontSize) || 16;
   const valor = bruto.endsWith("rem") ? parseFloat(bruto) * base : parseFloat(bruto);
 
-  // Um token ausente é erro de programação, não condição de operação: falhar em
-  // silêncio deixaria o gráfico ilegível sem explicar por quê.
+  // Token ausente é erro de programação, e falhar em silêncio deixaria o gráfico
+  // ilegível sem explicar por quê.
   if (!Number.isFinite(valor)) throw new Error(`Token ausente ou não numérico: ${token}`);
 
   cache.set(token, valor);
@@ -85,38 +79,64 @@ export const marcacao = (recuada = true) => ({
 });
 
 /**
- * Opacidade do preenchimento de área, do topo à base.
- *
- * Um degradê quase até zero, e não uma cor chapada: área sólida sob a linha compete
- * com as barras dos outros cartões pelo mesmo peso visual.
+ * Opacidade do preenchimento de área, do topo à base. Degradê quase até zero: área
+ * sólida sob a linha competiria com as barras dos outros cartões.
  */
 export const AREA = { topo: 0.22, base: 0.02 } as const;
 
 /**
- * Margens dos gráficos.
+ * Margens dos gráficos, nomeadas aqui para que o alinhamento entre cartões vizinhos
+ * não dependa de cada página negociar a sua.
  *
- * Os valores negativos à esquerda não são folga: compensam a largura que o Recharts
- * reserva ao eixo Y mesmo quando os rótulos são curtos, e sem eles o gráfico fica
- * deslocado dentro do cartão. Ficam nomeados aqui porque, escritos no local, cada
- * página negociaria o seu e o alinhamento entre cartões vizinhos se perderia.
+ * `serie` não usa margem negativa para recuperar os 60px que o Recharts reserva ao
+ * eixo Y: a margem cortava o primeiro caractere de rótulos de cinco dígitos. A largura
+ * do eixo é declarada por `larguraEixoValor`.
  */
 export const MARGEM = {
-  /** Série contínua com eixo Y de valores curtos. */
-  serie: { left: -18, right: 6, top: 6 },
+  /** Série contínua, com o eixo Y dimensionado pelo maior valor. */
+  serie: { left: 0, right: 6, top: 6 },
   /** Barras horizontais, com espaço à direita para o rótulo do valor. */
   categorias: { left: 8, right: 48 },
   /** Gráfico secundário, dentro de coluna estreita. */
   compacto: { left: -26, right: 4, top: 4 },
 } as const;
 
+/**
+ * Largura de que o eixo Y precisa para escrever o maior valor sem cortá-lo. O padrão
+ * do Recharts são 60px fixos, que sobram para `800` e faltam para `18000`.
+ */
+export function larguraEixoValor(maximo: number): number {
+  const rotulo = String(Math.round(maximo));
+  return larguraTexto(rotulo, medida("--text-nota")) + medida("--espaco-rotulo-eixo");
+}
+
+/** Pixels disponíveis ao desenho de uma série: o cartão menos o eixo e as margens. */
+export function larguraDesenho(larguraDoCartao: number, larguraDoEixo: number): number {
+  const { left, right } = MARGEM.serie;
+  return Math.max(0, larguraDoCartao - larguraDoEixo - left - right);
+}
+
+/**
+ * Largura de um texto em pixels, medida num `canvas` fora da árvore com a mesma fonte
+ * da página. Estimar por número de caracteres erra em nomes que misturam `i`, `l` e
+ * `m`, que é o caso dos nomes de condição.
+ */
+let pincel: CanvasRenderingContext2D | null = null;
+
+export function larguraTexto(texto: string, tamanho: number): number {
+  pincel ??= document.createElement("canvas").getContext("2d");
+  // Sem canvas, devolve uma largura exagerada de propósito: esconde o rótulo, que é
+  // preferível a sobrepô-lo.
+  if (!pincel) return texto.length * tamanho;
+  pincel.font = `${tamanho}px ${getComputedStyle(document.body).fontFamily}`;
+  return pincel.measureText(texto).width;
+}
+
 /* ── Movimento ───────────────────────────────────────────────────────────────── */
 
 /**
- * Atrasos dos três pontos do indicador de digitação.
- *
- * Derivados de um único token: escritos como `[0, 150, 300]`, eram três números
- * crus cuja relação — cada ponto atrasa um passo a mais que o anterior — ficava
- * implícita e se perdia ao primeiro ajuste.
+ * Atrasos dos três pontos do indicador de digitação, derivados de um passo único —
+ * cada ponto atrasa um passo a mais que o anterior.
  */
 export const atrasosDigitacao = () => {
   const passo = medida("--passo-digitacao");

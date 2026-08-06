@@ -1,14 +1,11 @@
 /**
  * Interface da solução de manutenção prescritiva (ADR-002).
  *
- * Cliente da API, não uma segunda implementação da lógica: todas as telas conversam
- * com os mesmos endpoints que um supervisório ou um CMMS usaria. Nenhuma regra de
- * decisão vive aqui — o que a tela mostra é o que o serviço respondeu.
+ * Cliente da API, não uma segunda implementação da lógica: nenhuma regra de decisão
+ * vive aqui, e o que a tela mostra é o que o serviço respondeu.
  *
- * O produto ocupa a janela inteira, sem moldura: a lateral escura sangra até a borda
- * e a área de trabalho recebe todo o resto. É o arranjo de uma ferramenta que fica
- * aberta o dia todo — margem decorativa em volta cobraria largura de tabela em troca
- * de nada.
+ * O produto ocupa a janela inteira, sem moldura: a lateral sangra até a borda e a área
+ * de trabalho recebe o resto.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -25,12 +22,9 @@ export default function App() {
   const [pagina, setPagina] = useState<Pagina>("painel");
   const [menuAberto, setMenuAberto] = useState(false);
   /**
-   * Condição que a análise recusou e que o usuário pediu para cadastrar.
-   *
-   * Existe para fechar o ciclo do ADR-014 sem que ninguém precise reencontrar a
-   * condição num menu de doze: recusou, clicou, o cadastro já abre apontando para
-   * ela. É limpa em qualquer navegação comum — mantê-la faria uma visita posterior a
-   * Documentos abrir numa condição escolhida em outro contexto.
+   * Condição que a análise recusou e que o usuário pediu para cadastrar: o cadastro
+   * abre já apontando para ela, sem reencontrá-la num menu de doze. É limpa em qualquer
+   * navegação comum, para que uma visita posterior não herde a escolha.
    */
   const [condicaoParaCadastro, setCondicaoParaCadastro] = useState<string | null>(null);
   const [sistema, setSistema] = useState<EstadoSistema | null>(null);
@@ -41,11 +35,9 @@ export default function App() {
   const [apiFora, setApiFora] = useState(false);
 
   /**
-   * Recarrega o estado compartilhado — no início e após cadastrar um documento.
-   *
-   * A falha é registrada explicitamente, e não engolida: sem isso, uma API fora do
-   * ar deixaria o painel em carregamento indefinido, que na tela é indistinguível de
-   * um sistema travado.
+   * Recarrega o estado compartilhado — no início e após cadastrar um documento. A falha
+   * é registrada em estado próprio; engolida, deixaria o painel em carregamento
+   * indefinido.
    */
   const carregar = useCallback(async () => {
     setCarregando(true);

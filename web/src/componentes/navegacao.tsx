@@ -1,29 +1,20 @@
 /**
  * Barra lateral e cabeçalho de página.
  *
- * A navegação é uma **ilha escura dentro de um produto claro**. Não é contraste
- * decorativo: separa em uma leitura o que é moldura permanente do que é conteúdo da
- * tarefa, e devolve à área de trabalho todo o branco disponível — que é onde estão
- * os números, os gráficos e as tabelas.
+ * A navegação é escura dentro de um produto claro, para separar numa leitura a moldura
+ * permanente do conteúdo da tarefa. Os itens são agrupados por natureza: o que se faz
+ * no dia a dia e o que se configura.
  *
- * Os itens são agrupados por natureza da tarefa: o que se faz no dia a dia e o que
- * se configura. Quatro itens soltos não formam uma lista legível; agrupados, formam.
+ * Os defeitos sem procedimento aparecem só como contagem ao lado de *Documentos*. Os
+ * nomes por extenso ficam no cartão dedicado do Painel, com eventos por dia.
  *
- * Os defeitos sem procedimento aparecem como sub-itens de *Documentos*, ligados por
- * uma guia vertical. Não é enfeite: responde, sem que ninguém precise abrir a tela,
- * à única pergunta que o operador faz o tempo todo — *o que ainda está sem
- * procedimento?*
- *
- * **Comportamento responsivo.** Acima de 1024px a lateral é fixa e acompanha a
- * rolagem. Abaixo disso ela vira gaveta: 244px sobre uma tela de projetor ou
- * notebook pequeno comprimiriam o conteúdo até as tabelas quebrarem, e esconder a
- * navegação é preferível a inutilizar a página que ela serve.
+ * Acima de 1024px a lateral é fixa e acompanha a rolagem; abaixo disso vira gaveta,
+ * porque 244px sobre tela de projetor comprimiriam o conteúdo até as tabelas quebrarem.
  */
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import type { CoberturaDocumental, EstadoSistema } from "../api/tipos";
-import { nomeCondicao } from "../condicoes";
 import { Icone } from "./base";
 
 export type Pagina = "painel" | "analise" | "assistente" | "documentos";
@@ -88,11 +79,9 @@ export function BarraLateral({
 
       <aside
         className={`fixed lg:sticky top-0 z-[var(--camada-gaveta)] h-screen shrink-0 flex flex-col bg-lateral transition-transform w-[var(--largura-lateral)] lg:w-[var(--largura-lateral-media)] xl:w-[var(--largura-lateral)] ${
-          // `invisible` é o que de fato importa aqui, e não a translação: deslocada
-          // para fora da tela, a gaveta continuava na ordem de tabulação, e quem
-          // navega por teclado abaixo de 1024px caía dentro de um menu invisível —
-          // seis paradas em elementos que ninguém vê. `visibility: hidden` remove do
-          // foco; `lg:visible` a devolve quando ela deixa de ser gaveta.
+          // `invisible` importa mais que a translação: só deslocada para fora da tela,
+          // a gaveta continuaria na ordem de tabulação, com seis paradas em elementos
+          // que ninguém vê. `lg:visible` a devolve quando deixa de ser gaveta.
           aberta
             ? "translate-x-0"
             : "-translate-x-full invisible lg:visible lg:translate-x-0"
@@ -127,62 +116,44 @@ export function BarraLateral({
 
               {secao.destinos.map((destino) => {
                 const ativo = atual === destino.chave;
+                const contar = destino.chave === "documentos" && pendentes.length > 0;
                 return (
-                  <div key={destino.chave}>
-                    {/* O item corrente é preenchido no acento, e não apenas
-                        destacado: na lateral escura um realce sutil desaparece a
-                        dois metros de distância, que é a condição da apresentação. */}
-                    <button
-                      onClick={() => aoNavegar(destino.chave)}
-                      aria-current={ativo ? "page" : undefined}
-                      className={`foco-lateral w-full flex items-center gap-3 px-3 py-2 rounded-controle text-corpo transition ${
-                        ativo
-                          ? "bg-lateral-acento text-tinta-invertida font-semibold"
-                          : "text-lateral-tinta-suave hover:bg-lateral-elevada hover:text-lateral-tinta font-medium"
-                      }`}
-                    >
-                      <Icone nome={destino.icone} tamanho="medio" />
-                      <span className="truncate">{destino.rotulo}</span>
-                      {/* A pílula é neutra e só o algarismo é âmbar. Preencher o
-                          fundo de âmbar sobre preto produz uma mancha marrom, e uma
-                          contagem não é um estado: o que ela precisa comunicar é
-                          "há três", não "atenção". */}
-                      {destino.chave === "documentos" && pendentes.length > 0 && (
-                        <span
-                          className={`ml-auto text-nota font-semibold rounded-full px-2 ${
-                            ativo
-                              ? "bg-tinta-invertida/25 text-tinta-invertida"
-                              : "bg-lateral-elevada text-lateral-alerta"
-                          }`}
-                        >
-                          {pendentes.length}
-                        </span>
-                      )}
-                    </button>
-
-                    {/* Os marcadores desta lista são neutros. Antes eram âmbar, e
-                        isso punha quatro marcas da cor de alerta num palmo de tela ao
-                        lado do azul do item corrente — complementares em chroma alta
-                        sobre um neutro escuro, que é a combinação que vibra. A cor
-                        também não informava: *toda* condição desta lista está sem
-                        procedimento, então pintá-las repete o que a lista já diz. O
-                        âmbar fica onde ainda carrega informação — a contagem. */}
-                    {destino.chave === "documentos" && pendentes.length > 0 && (
-                      <div className="relative ml-6 mt-1 mb-1 pl-4">
-                        <span className="absolute left-0 top-0 bottom-3 w-px bg-lateral-borda" />
-                        {pendentes.map((pendente) => (
-                          <div
-                            key={pendente.condicao}
-                            className="relative py-1 text-nota text-lateral-tinta-suave"
-                          >
-                            <span className="absolute -left-4 top-1/2 w-2.5 h-px bg-lateral-borda" />
-                            <span className="inline-block w-1 h-1 rounded-full bg-lateral-tinta-suave mr-2 align-middle" />
-                            {nomeCondicao(pendente.condicao)}
-                          </div>
-                        ))}
-                      </div>
+                  /* O item corrente é preenchido no acento: na lateral escura um
+                     realce sutil desaparece a dois metros de distância. */
+                  <button
+                    key={destino.chave}
+                    onClick={() => aoNavegar(destino.chave)}
+                    aria-current={ativo ? "page" : undefined}
+                    // O algarismo é o único portador da informação, e "3" sozinho não
+                    // diz três do quê.
+                    aria-label={
+                      contar
+                        ? `${destino.rotulo}, ${pendentes.length} sem procedimento`
+                        : undefined
+                    }
+                    className={`foco-lateral w-full flex items-center gap-3 px-3 py-2 rounded-controle text-corpo transition ${
+                      ativo
+                        ? "bg-lateral-acento text-tinta-invertida font-semibold"
+                        : "text-lateral-tinta-suave hover:bg-lateral-elevada hover:text-lateral-tinta font-medium"
+                    }`}
+                  >
+                    <Icone nome={destino.icone} tamanho="medio" />
+                    <span className="truncate">{destino.rotulo}</span>
+                    {/* Pílula neutra, só o algarismo em âmbar: âmbar chapado sobre
+                        preto vira mancha marrom, e uma contagem não é um estado. */}
+                    {contar && (
+                      <span
+                        aria-hidden="true"
+                        className={`ml-auto text-nota font-semibold rounded-full px-2 ${
+                          ativo
+                            ? "bg-tinta-invertida/25 text-tinta-invertida"
+                            : "bg-lateral-elevada text-lateral-alerta"
+                        }`}
+                      >
+                        {pendentes.length}
+                      </span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -201,7 +172,7 @@ export function BarraLateral({
   );
 }
 
-/** Estado do serviço, fixo no pé da lateral — o equivalente ao cartão de conta. */
+/** Estado do serviço, fixo no pé da lateral. */
 function CartaoSistema({ sistema }: { sistema: EstadoSistema | null }) {
   const conectada = sistema !== null;
   const cor = conectada
@@ -211,9 +182,8 @@ function CartaoSistema({ sistema }: { sistema: EstadoSistema | null }) {
   return (
     <div className="rounded-cartao bg-lateral-elevada p-3">
       <div className="flex items-center gap-2">
-        {/* O halo usa color-mix porque os tokens são variáveis CSS: concatenar
-            opacidade em hexadecimal produziria `var(--color-sucesso)22`, que o
-            navegador descarta. */}
+        {/* Halo por color-mix: os tokens são variáveis CSS, e concatenar opacidade em
+            hexadecimal produziria `var(--color-sucesso)22`, que o navegador descarta. */}
         <span
           className="w-2 h-2 rounded-full shrink-0"
           style={{

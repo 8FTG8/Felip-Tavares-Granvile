@@ -1,27 +1,20 @@
 /**
  * Vocabulário das condições, em português.
  *
- * As 17 formas canônicas produzidas pela normalização (`src/ingestion/rotulos.py`) são
- * identificadores de banco: `rolamento_combination`, `cocked_rotor`, `eccentric_rotor`.
- * Servem para indexar, comparar e citar — não para ler. Um técnico de manutenção não
- * reconhece nenhum deles, e a tela pedia justamente que ele escolhesse um numa lista de
- * doze.
+ * As 17 formas canônicas da normalização (`src/ingestion/rotulos.py`) são
+ * identificadores de banco — `rolamento_combination`, `cocked_rotor` —, próprios para
+ * indexar e citar, não para ler.
  *
- * **O identificador nunca é escondido.** Ele aparece em toda parte como legenda
- * secundária, em monoespaçada: é o que chega no JSON do sensor, o que a API devolve e o
- * que aparece na citação. Trocar um pelo outro quebraria a rastreabilidade que o produto
- * inteiro existe para oferecer; o nome em português vem *junto*, não no lugar.
+ * O identificador nunca é escondido: aparece junto, como legenda secundária em
+ * monoespaçada, porque é o que chega no JSON do sensor, o que a API devolve e o que
+ * consta da citação. O nome em português vem junto, não no lugar.
  *
- * A tradução segue a terminologia usual de análise de vibração em máquinas rotativas.
- * Dois pontos mereceram cuidado:
+ * Duas escolhas de tradução:
  *
- * - `cocked_rotor` **não** é "rotor desalinhado": `desalinhado` já é outra condição
- *   distinta neste mesmo conjunto, e usar a palavra nas duas as tornaria indistinguíveis
- *   exatamente onde a demonstração mostra que a assinatura vibratória não as separa.
- *   Ficou "Rotor inclinado no eixo", que é o defeito de montagem que o termo descreve.
- * - As quatro famílias de rolamento compartilham prefixo para ordenarem juntas e para
- *   deixar visível que são o mesmo componente com origens diferentes — o que também
- *   explica por que as quatro apontam para o mesmo documento.
+ * - `cocked_rotor` é "Rotor inclinado no eixo", não "rotor desalinhado": `desalinhado`
+ *   é outra condição do mesmo conjunto, e a assinatura vibratória não separa as duas.
+ * - As quatro famílias de rolamento compartilham prefixo para ordenarem juntas; são o
+ *   mesmo componente com origens diferentes, e apontam para o mesmo documento.
  */
 
 /** Defeitos — as 12 famílias que podem receber prescrição. */
@@ -52,11 +45,8 @@ const ESTADOS: Record<string, string> = {
 const NOMES: Record<string, string> = { ...DEFEITOS, ...ESTADOS };
 
 /**
- * Nome legível de uma condição.
- *
- * Devolve o próprio identificador quando não há tradução — o caso de uma condição
- * cadastrada em operação, depois que este arquivo foi escrito. Exibir o identificador
- * cru é pior que exibir um nome, e muito melhor que exibir nada.
+ * Nome legível de uma condição. Sem tradução, devolve o próprio identificador — o caso
+ * de uma condição cadastrada em operação, depois que este arquivo foi escrito.
  */
 export function nomeCondicao(condicao: string): string {
   return NOMES[condicao] ?? condicao;

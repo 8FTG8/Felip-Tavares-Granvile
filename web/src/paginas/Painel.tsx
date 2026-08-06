@@ -1,6 +1,6 @@
 /** Painel do histórico monitorado. */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -41,7 +41,10 @@ import {
   espacoMarcacao,
   espessuraBarra,
   espessuraLinha,
+  larguraDesenho,
   larguraEixoCategoria,
+  larguraEixoValor,
+  larguraTexto,
   marcacao,
   medida,
   raioBarra,
@@ -113,10 +116,9 @@ export function Painel({
         }
       />
 
-      {/* A cobertura documental abre a fileira e ocupa duas colunas. É o guardrail
-          expresso em número — a única métrica da tela que responde "quanto do problema
-          o sistema se recusa a resolver" — e estava como quarto de quatro cartões
-          iguais, com o mesmo peso de uma contagem de linhas. */}
+      {/* A cobertura documental abre a fileira e ocupa duas colunas: é o guardrail
+          expresso em número, a única métrica da tela que diz quanto do problema o
+          sistema se recusa a resolver. */}
       <div className="grid grid-cols-2 projetor:grid-cols-5 gap-4 mb-4">
         <IndicadorCobertura
           valor={resumo.cobertura_documental}
@@ -188,11 +190,10 @@ export function Painel({
       <div className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-4 mb-4">
         <Cartao titulo="Eventos ao longo do tempo" complemento="faixas = campanhas de ensaio">
           <SerieTemporal dados={dados.eventos_por_dia} campanhas={dados.campanhas} />
-          {/* A legenda anterior dizia "janelas quase disjuntas", e isso não se sustentava
-              nos dados: medidas por primeiro e último evento, as janelas de cada condição
-              se sobrepõem quase inteiramente — `desbalanceado` é ensaiado em abril e volta
-              em junho. Medido pela condição que domina cada dia, o histórico mostra dois
-              regimes, e o argumento do ADR-003 sobrevive aos dois. */}
+          {/* As janelas de cada condição não são disjuntas: medidas por primeiro e
+              último evento elas se sobrepõem quase inteiramente — `desbalanceado` é
+              ensaiado em abril e volta em junho. A leitura que se sustenta é a
+              dominância diária, e o argumento do ADR-003 vale nos dois regimes. */}
           <p className="text-nota text-tinta-suave mt-2">
             Os ensaios se sucedem em blocos: até 28/05 cada trecho concentra um modo de
             falha, com 61% a 100% dos eventos do dia numa só condição; de 01/06 em diante
@@ -228,9 +229,8 @@ export function Painel({
           />
         </div>
         {(() => {
-          // O filtro casa contra o nome em português **e** contra o identificador:
-          // quem digita "rolamento" e quem digita "bearing_inner" procuram a mesma
-          // linha, e só um dos dois estava contemplado.
+          // O filtro casa contra o nome em português e contra o identificador: quem
+          // digita "rolamento" e quem digita "rolamento_inner" procura a mesma linha.
           const busca = filtro.trim().toLowerCase();
           const visiveis = condicoes.filter(
             (c) =>
@@ -256,10 +256,8 @@ export function Painel({
 }
 
 /**
- * Cartão de indicador.
- *
- * A ordem é rótulo → número → nota, e não o contrário: o número é o único elemento
- * da tela lido a três metros, então nada pode ficar acima dele disputando atenção.
+ * Cartão de indicador, na ordem rótulo → número → nota: o número é o único elemento da
+ * tela lido a três metros, e nada deve ficar acima dele disputando atenção.
  */
 function Indicador({
   icone,
@@ -287,12 +285,9 @@ function Indicador({
 }
 
 /**
- * Cobertura documental — o cartão que carrega a tese.
- *
- * A barra mostra as duas frações, e não só a coberta sobre um trilho vazio: o que
- * falta é decisão registrada (ADR-011), não lacuna a ser tapada, e desenhá-la em
- * âmbar diz isso sem uma linha de texto. Vazio, o trilho convidava à leitura
- * "faltou fazer".
+ * Cobertura documental. A barra desenha as duas frações, e não só a coberta sobre um
+ * trilho vazio: o que falta é decisão registrada (ADR-011), e um trilho vazio se lê
+ * como pendência.
  */
 function IndicadorCobertura({
   valor,
@@ -374,11 +369,9 @@ function GraficoCobertura({ defeitos }: { defeitos: CondicaoNoHistorico[] }) {
 }
 
 /**
- * Legenda em lista, com o número ao lado do nome.
- *
- * Além de dar a leitura exata sem depender do cursor, serve de codificação
- * secundária da cor — exigência para o par verde/âmbar, que fica na faixa limítrofe
- * sob protanopia.
+ * Legenda em lista, com o número ao lado do nome. Dá a leitura exata sem depender do
+ * cursor e serve de codificação secundária da cor, exigida pelo par verde/âmbar, que
+ * fica na faixa limítrofe sob protanopia.
  */
 function LegendaCobertura({ defeitos }: { defeitos: CondicaoNoHistorico[] }) {
   return (
@@ -412,15 +405,14 @@ function LegendaCobertura({ defeitos }: { defeitos: CondicaoNoHistorico[] }) {
 /**
  * Série temporal com as campanhas de ensaio marcadas ao fundo.
  *
- * As faixas são **neutras e alternadas**, não coloridas por condição. São dezoito, e a
- * paleta tem um acento e três status reservados: colorir cada uma exigiria inventar
- * quatorze cores e destruiria o significado das que existem. A identidade da campanha é
- * carregada por posição e rótulo, que é a política registrada em `index.css` para
- * categorias numerosas — a informação aqui é *quando cada ensaio ocorreu*, não qual cor
- * corresponde a qual defeito.
+ * As faixas são neutras e alternadas, não coloridas por condição: são dezoito, e a
+ * paleta tem um acento e três status reservados. A identidade vem de posição e rótulo,
+ * que é a política de `index.css` para categorias numerosas.
  *
- * Só recebem rótulo os blocos de dois dias ou mais; nos de um dia o nome não caberia e
- * colidiria com o vizinho.
+ * Só recebe rótulo a faixa em que o nome cabe, com faixa e nome medidos em pixels.
+ * Decidir pela duração do bloco não funciona — duração não é largura, e um nome de
+ * vinte e oito caracteres centrado em dois dias transborda sobre os vizinhos e sobre a
+ * marcação mais alta do eixo Y. Sem rótulo, a identidade continua na dica do ponteiro.
  */
 function SerieTemporal({
   dados,
@@ -433,53 +425,87 @@ function SerieTemporal({
     .map(([dia, eventos]) => ({ dia, eventos }))
     .sort((a, b) => a.dia.localeCompare(b.dia));
 
+  // A largura do cartão só se conhece depois de montado, e muda com a janela.
+  const caixa = useRef<HTMLDivElement>(null);
+  const [largura, setLargura] = useState(0);
+
+  useEffect(() => {
+    const alvo = caixa.current;
+    if (!alvo) return;
+    const observador = new ResizeObserver(([entrada]) =>
+      setLargura(entrada.contentRect.width),
+    );
+    observador.observe(alvo);
+    return () => observador.disconnect();
+  }, []);
+
+  const larguraEixo = larguraEixoValor(Math.max(...serie.map((ponto) => ponto.eventos)));
+  const desenho = larguraDesenho(largura, larguraEixo);
+  const passoDoDia = serie.length > 1 ? desenho / (serie.length - 1) : 0;
+  const corpoRotulo = medida("--text-nota");
+  const folga = medida("--espaco-rotulo-faixa");
+
+  /** Nome do bloco, ou nada, conforme caiba na largura que a faixa ocupa. */
+  function rotulo(bloco: BlocoDeCampanha) {
+    const inicio = serie.findIndex((ponto) => ponto.dia === bloco.primeiro_dia);
+    const fim = serie.findIndex((ponto) => ponto.dia === bloco.ultimo_dia);
+    if (inicio < 0 || fim < 0) return undefined;
+
+    const nome = nomeCondicao(bloco.condicao);
+    const disponivel = (fim - inicio) * passoDoDia;
+    if (disponivel < larguraTexto(nome, corpoRotulo) + folga) return undefined;
+
+    return {
+      value: nome,
+      position: "insideTop" as const,
+      fill: COR.tintaSuave,
+      fontSize: corpoRotulo,
+      // Afasta o nome da marcação mais alta do eixo Y, que ocupa a mesma linha no topo
+      // da área de desenho.
+      offset: folga,
+    };
+  }
+
   return (
-    <Moldura>
-      <AreaChart data={serie} margin={MARGEM.serie}>
-        {campanhas.map((bloco, indice) => (
-          <ReferenceArea
-            key={`${bloco.condicao}-${bloco.primeiro_dia}`}
-            x1={bloco.primeiro_dia}
-            x2={bloco.ultimo_dia}
-            fill={indice % 2 === 0 ? COR.grade : "transparent"}
-            fillOpacity={1}
-            label={
-              bloco.dias >= 2
-                ? {
-                    value: nomeCondicao(bloco.condicao),
-                    position: "insideTop",
-                    fill: COR.tintaSuave,
-                    fontSize: medida("--text-nota"),
-                  }
-                : undefined
-            }
+    <div ref={caixa}>
+      <Moldura>
+        <AreaChart data={serie} margin={MARGEM.serie}>
+          {campanhas.map((bloco, indice) => (
+            <ReferenceArea
+              key={`${bloco.condicao}-${bloco.primeiro_dia}`}
+              x1={bloco.primeiro_dia}
+              x2={bloco.ultimo_dia}
+              fill={indice % 2 === 0 ? COR.grade : "transparent"}
+              fillOpacity={1}
+              label={rotulo(bloco)}
+            />
+          ))}
+          <defs>
+            <linearGradient id="areaAcento" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={COR.acento} stopOpacity={AREA.topo} />
+              <stop offset="100%" stopColor={COR.acento} stopOpacity={AREA.base} />
+            </linearGradient>
+          </defs>
+          <XAxis
+            dataKey="dia"
+            tickLine={false}
+            axisLine={{ stroke: COR.borda }}
+            tick={marcacao()}
+            tickFormatter={(dia: string) => dia.slice(8, 10) + "/" + dia.slice(5, 7)}
+            minTickGap={espacoMarcacao()}
           />
-        ))}
-        <defs>
-          <linearGradient id="areaAcento" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={COR.acento} stopOpacity={AREA.topo} />
-            <stop offset="100%" stopColor={COR.acento} stopOpacity={AREA.base} />
-          </linearGradient>
-        </defs>
-        <XAxis
-          dataKey="dia"
-          tickLine={false}
-          axisLine={{ stroke: COR.borda }}
-          tick={marcacao()}
-          tickFormatter={(dia: string) => dia.slice(8, 10) + "/" + dia.slice(5, 7)}
-          minTickGap={espacoMarcacao()}
-        />
-        <YAxis tickLine={false} axisLine={false} tick={marcacao()} />
-        <Tooltip content={<Dica sufixo="eventos" />} />
-        <Area
-          type="monotone"
-          dataKey="eventos"
-          stroke={COR.acento}
-          strokeWidth={espessuraLinha()}
-          fill="url(#areaAcento)"
-        />
-      </AreaChart>
-    </Moldura>
+          <YAxis width={larguraEixo} tickLine={false} axisLine={false} tick={marcacao()} />
+          <Tooltip content={<Dica sufixo="eventos" />} />
+          <Area
+            type="monotone"
+            dataKey="eventos"
+            stroke={COR.acento}
+            strokeWidth={espessuraLinha()}
+            fill="url(#areaAcento)"
+          />
+        </AreaChart>
+      </Moldura>
+    </div>
   );
 }
 
@@ -493,7 +519,12 @@ function Rotacao({ dados }: { dados: Record<string, number> }) {
     <Moldura>
       <BarChart data={serie} margin={MARGEM.serie}>
         <XAxis dataKey="rpm" tickLine={false} axisLine={{ stroke: COR.borda }} tick={marcacao()} />
-        <YAxis tickLine={false} axisLine={false} tick={marcacao()} />
+        <YAxis
+          width={larguraEixoValor(maximo)}
+          tickLine={false}
+          axisLine={false}
+          tick={marcacao()}
+        />
         <Tooltip content={<Dica sufixo="eventos" />} cursor={CURSOR} />
         <Bar dataKey="eventos" radius={[raio, raio, 0, 0]}>
           {serie.map((item) => (
@@ -506,13 +537,8 @@ function Rotacao({ dados }: { dados: Record<string, number> }) {
 }
 
 /**
- * Detalhamento por condição, ordenável.
- *
- * Dezessete linhas com filtro e sem ordenação obrigavam a ler a coluna inteira para
- * responder a pergunta mais óbvia que a tabela suscita — *qual defeito mais ocorre?*.
- *
- * A ordem inicial é por volume decrescente, e não alfabética: quem abre esta tabela
- * quer saber o que domina o histórico, não o que começa com "a".
+ * Detalhamento por condição, ordenável. A ordem inicial é por volume decrescente, e não
+ * alfabética: a pergunta que a tabela responde é qual defeito mais ocorre.
  */
 type Coluna = keyof Pick<
   CondicaoNoHistorico,
