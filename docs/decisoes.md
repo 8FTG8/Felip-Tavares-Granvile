@@ -631,6 +631,9 @@ em hardware menor em vez de deixar de funcionar.
 
 ## ADR-014 — Cobertura documental em duas camadas: mapa versionado e registro operacional
 
+> Ver também o **ADR-014-A**, que acrescenta a remoção de um cadastro feito em operação.
+> A decisão das duas camadas permanece; o que faltava era o caminho de volta.
+
 > **Revisão 1 (06/08/2026)** — a consequência aceita registrada abaixo *não estava
 > implementada*. O recadastro substituía a linha do SQLite, como afirmado, mas o índice
 > vetorial é gravado por `upsert`, que atualiza os ids recebidos e **não apaga os
@@ -667,7 +670,7 @@ operação.
 **Decisão.** Duas camadas. O mapa em `src/rag/mapeamento.py` permanece estático, versionado e
 coberto por testes — descreve a base entregue com o projeto. Um registro em SQLite
 (`src/rag/registro.py`) guarda as associações criadas em operação e é consultado pelo roteador
-a cada decisão, sobrepondo-se ao mapa quando há cadastro para a condição.
+a cada decisão, **preenchendo as lacunas** do mapa — que é consultado primeiro.
 
 **Justificativa.** As duas camadas respondem a perguntas diferentes. O mapa é uma afirmação
 de projeto — "estes procedimentos cobrem estes defeitos, e estes três não têm cobertura, por
@@ -687,9 +690,102 @@ documento recém-cadastrado valha na consulta seguinte. Isso é o que permite de
 completo — recusa, cadastro, atendimento — sem reiniciar o serviço.
 
 **Consequências aceitas.** Duas fontes de verdade para a cobertura, com precedência definida
-(registro sobre mapa) e teste de ciclo completo garantindo que a composição funciona. Um
+(mapa sobre registro) e teste de ciclo completo garantindo que a composição funciona. Um
 recadastro para a mesma condição substitui o anterior em vez de acumular: manter as duas
 versões faria a busca recuperar procedimento obsoleto sem que ninguém percebesse.
+
+> **Revisão 2 (06/08/2026)** — este ADR e a docstring de `Roteador._cobertura` declaravam
+> a precedência **invertida**: "um cadastro em operação sobrepõe-se ao mapa". O código
+> sempre fez o contrário — `_cobertura` consulta o mapa e só desce ao registro quando o
+> mapa não cobre. Nenhum teste tocava o caso, porque só se cadastrava para condição
+> descoberta, que é o cenário da demonstração.
+>
+> Corrigido o texto, e não o código: a precedência implementada é a defensável. Um
+> procedimento revisto e versionado não deve ser substituído por um PDF enviado em
+> operação; trocar a base entregue exige alterar o mapa e passar por revisão. O teste
+> `test_cadastro_nao_sobrepoe_documento_do_mapa` fixa a regra, para que a afirmação não
+> volte a divergir da implementação.
+>
+> **Consequência em aberto.** Cadastrar para uma condição que o mapa já cobre grava a
+> linha, indexa os trechos e **não muda o roteamento** — a interface segue citando o
+> documento do mapa e não marca a linha como *cadastrado em operação*, de modo que nem o
+> botão de remoção aparece. É um envio que parece funcionar e não faz efeito visível.
+> Recusar o cadastro nesse caso seria coerente, mas é decisão de produto e não foi tomada.
+
+---
+
+## ADR-014-A — Remoção de um cadastro feito em operação
+
+> Complementa o ADR-014. As duas camadas permanecem, e a precedência do mapa sobre o
+> registro também. O que se acrescenta é a operação inversa do cadastro.
+
+**Contexto.** O ADR-014 fecha metade de um ciclo. O sistema recusa por falta de
+documentação, sugere o cadastro, aceita o PDF e passa a atender a condição na consulta
+seguinte — e não havia como desfazer. Não existia rota de remoção, e
+`RegistroDocumentos.remover` chegou a ser apagada como código morto.
+
+A lacuna apareceu em uso: o procedimento de falta de fase acabou cadastrado sob
+`eccentric_rotor`. Documento errado na condição errada. Cadastrar na condição errada é
+erro banal de operação — o formulário tem um menu de doze itens —, e a única saída era um
+script dentro do contêiner mexendo em três lugares (índice vetorial, SQLite e disco) e
+**reiniciando o serviço**, porque as fábricas de `src/api/dependencias.py` são memoizadas
+por processo e não enxergam alteração feita por fora.
+
+Sobrescrever já funcionava e continua sendo o caminho para *trocar* um documento: um novo
+cadastro para a mesma condição substitui registro, arquivo e trechos indexados. O que
+faltava era voltar ao estado de recusa.
+
+**Alternativas.** (a) documentar o procedimento manual e não implementar nada — o
+enunciado pede sugerir o cadastro, não desfazê-lo; (b) marcar o cadastro como inativo,
+preservando o histórico; (c) `DELETE /documentos/{condicao}`, removendo dos três lugares.
+
+**Decisão.** (c). A rota alcança **apenas o que foi cadastrado em operação** e devolve a
+condição à recusa por falta de documentação, sem reinício. O arquivo em
+`storage/documentos/` é apagado junto.
+
+**Justificativa.**
+
+*Por que só o cadastro em operação.* A cobertura declarada em `src/rag/mapeamento.py` é
+afirmação de projeto — versionada, revista e coberta por teste. É dela que sai a recusa de
+`eccentric_rotor` do ADR-011, e a possibilidade de asseverar por teste que `falta_fase`
+não tem documento depende de ela não ser mutável em operação. Uma rota HTTP não apaga uma
+linha de código; permitir isso destruiria a distinção que é a tese inteira do ADR-014.
+
+*Por que o arquivo também é apagado.* Mantê-lo daria rastreabilidade pela metade: nada o
+referencia depois que o registro sai, a interface não o lista, e um novo cadastro para a
+mesma condição o sobrescreveria em silêncio, porque o nome é `DocOp-<condicao>.pdf`.
+Rastreabilidade de verdade exigiria nome com carimbo de data e uma trilha de auditoria à
+parte — não foi feito, e fingir que foi seria pior que não ter.
+
+*Por que 404 e não idempotente.* A convenção REST admite `DELETE` idempotente, devolvendo
+sucesso mesmo sem nada a remover. Aqui a segunda chamada devolve 404 de propósito: para
+uma ação de operador, "não havia nada aqui" significa que o estado mudou por outro caminho
+— outra sessão, outro cliente — e engolir isso esconderia justamente o que interessa. O
+404 de uma condição coberta pelo mapa traz motivo próprio, citando o documento que a
+atende; um 404 genérico faria o integrador concluir que a condição não existe.
+
+*Ordem dos passos.* Poda-se o índice, apaga-se o registro e só então o arquivo — o inverso
+do cadastro. Interrompida no meio, a operação deixa uma condição que consta como coberta e
+não recupera trecho algum: defeito visível na consulta seguinte. A ordem oposta deixaria
+trechos recuperáveis de um documento que o registro já não conhece, citáveis como fonte
+legítima — o modo de falha que o ADR-004 existe para impedir.
+
+*Cadastro sobre condição já coberta.* Nada impede registrar um procedimento em operação
+para uma condição que o mapa já atende, mas isso não altera o roteamento — o mapa vence,
+como a Revisão 2 do ADR-014 registra. A remoção alcança essa linha pela API, ainda que a
+interface não a exiba: `cadastrado_em_operacao` só é verdadeiro onde o mapa não cobre.
+
+**Consequências aceitas.** Uma operação destrutiva sem desfazer, exposta na interface. É
+mitigada por confirmação em dois passos na própria linha, e não por diálogo — é a linha
+que diz qual documento vai embora, e um modal cobriria a lista para repetir em texto o que
+já está visível. A ação só aparece nas linhas marcadas como *cadastrado em operação*,
+então não há como pedir a remoção do que não é removível.
+
+O ciclo passa a ser verificável nos dois sentidos. `test_devolve_a_condicao_a_recusa`
+cadastra, confirma que o evento recebe prescrição, remove e confirma que o **mesmo evento**
+volta a `sem_documento` — pela regra do ADR-017 aplicada às consequências, na Revisão 1 do
+ADR-014: o teste precisa exercitar a mudança que a decisão descreve, não uma linha de
+banco.
 
 ---
 

@@ -23,6 +23,7 @@ from src.api.esquemas import (
     CondicaoNoHistorico,
     Consulta,
     DocumentoRegistrado,
+    DocumentoRemovido,
     EstadoSistema,
     EventoSensor,
     Fonte,
@@ -43,7 +44,7 @@ from src.api.dependencias import (
 )
 from src.api.estatisticas import resumir
 from src.ingestion.rotulos import DEFEITOS
-from src.rag.cadastro import CadastroInvalido, cadastrar
+from src.rag.cadastro import CadastroInvalido, RemocaoInvalida, cadastrar, remover
 from src.rag.gerador import Gerador, ModeloIndisponivel
 from src.rag.indice_documental import IndiceDocumental
 from src.rag.mapeamento import cobertura
@@ -438,6 +439,40 @@ async def cadastrar_documento(
         origem=resultado.documento.origem,
         cadastrado_em=resultado.documento.cadastrado_em,
         secoes=resultado.secoes,
+    )
+
+
+@app.delete(
+    "/documentos/{condicao}",
+    response_model=DocumentoRemovido,
+    summary="Remove um procedimento cadastrado em operação",
+    tags=["Documentos"],
+)
+def remover_documento(
+    condicao: str,
+    indice: IndiceDocumental = Depends(obter_indice_documental),
+    registro: RegistroDocumentos = Depends(obter_registro),
+) -> DocumentoRemovido:
+    """Desfaz um cadastro e devolve a condição à recusa por falta de documentação.
+
+    Alcança apenas o que foi cadastrado por esta API. A cobertura declarada em
+    `src/rag/mapeamento.py` é versionada em código (ADR-014) e responde 404, com o motivo
+    dizendo qual documento a atende — um 404 genérico sugeriria que a condição não existe.
+
+    Não é idempotente: remover duas vezes devolve 404 na segunda. Para uma ação de
+    operador, "não havia nada aqui" é informação, não ruído.
+    """
+    try:
+        resultado = remover(condicao, indice, registro)
+    except CadastroInvalido as erro:
+        raise HTTPException(status_code=422, detail=str(erro)) from erro
+    except RemocaoInvalida as erro:
+        raise HTTPException(status_code=404, detail=str(erro)) from erro
+
+    return DocumentoRemovido(
+        condicao=resultado.condicao,
+        documento=resultado.documento,
+        trechos_removidos=resultado.trechos,
     )
 
 

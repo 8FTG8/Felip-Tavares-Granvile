@@ -89,6 +89,12 @@ export interface DocumentoRegistrado {
   secoes: string[];
 }
 
+export interface DocumentoRemovido {
+  condicao: string;
+  documento: string;
+  trechos_removidos: number;
+}
+
 export interface CondicaoNoHistorico {
   condicao: string;
   tipo_condicao: string;

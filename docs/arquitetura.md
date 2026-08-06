@@ -4,7 +4,7 @@ Solução de manutenção prescritiva: recebe um evento de sensor de vibração,
 ocorrências semelhantes no histórico e prescreve a ação corretiva **apenas quando existe
 procedimento técnico que a fundamente**.
 
-O porquê de cada escolha está em [`decisoes.md`](decisoes.md) — 18 registros. Este documento
+O porquê de cada escolha está em [`decisoes.md`](decisoes.md) — 20 registros. Este documento
 descreve o *que* e o *como*.
 
 ---
@@ -256,7 +256,7 @@ anotado na entrada, e um classificador sobre os atributos rende ~12% fora de ses
 
 | Verificação | Comando | Cobre |
 | --- | --- | --- |
-| Testes | `pytest -m "not lento"` | 253 testes, ~5 s |
+| Testes | `pytest -m "not lento"` | 269 testes, ~7 s |
 | Testes com Ollama real | `pytest` | inclui geração ponta a ponta |
 | Tipos, estilo e contraste | `cd web && npm run build` | TypeScript, design system, WCAG 2.1 AA |
 

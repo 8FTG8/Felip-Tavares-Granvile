@@ -16,6 +16,7 @@ from pathlib import Path
 from src.ingestion.rotulos import DEFEITOS, ESTADOS, normalizar
 from src.rag.documentos import Trecho, extrair_texto, fatiar
 from src.rag.indice_documental import IndiceDocumental
+from src.rag.mapeamento import cobertura
 from src.rag.registro import DocumentoCadastrado, RegistroDocumentos
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -30,10 +31,21 @@ class CadastroInvalido(ValueError):
     """Cadastro recusado antes de qualquer processamento."""
 
 
+class RemocaoInvalida(ValueError):
+    """Não há procedimento cadastrado em operação para a condição informada."""
+
+
 @dataclass(frozen=True)
 class ResultadoCadastro:
     documento: DocumentoCadastrado
     secoes: list[str]
+
+
+@dataclass(frozen=True)
+class ResultadoRemocao:
+    condicao: str
+    documento: str
+    trechos: int
 
 
 def _identificador(condicao: str) -> str:
@@ -131,3 +143,49 @@ def cadastrar(
         documento=cadastrado,
         secoes=[f"{t.numero_secao}. {t.titulo_secao}" for t in trechos],
     )
+
+
+def _motivo_da_recusa(canonica: str) -> str:
+    """Explica por que não há o que remover, separando os dois casos.
+
+    Uma condição coberta pelo mapa versionado *tem* documento, e responder o mesmo texto
+    de uma condição nunca cadastrada faria o integrador concluir que ela não existe.
+    """
+    estatica = cobertura(canonica)
+    if estatica.documentada:
+        return (
+            f"'{canonica}' é atendida por {estatica.documento}, da base entregue com o "
+            "projeto. Essa cobertura é versionada em código e não se altera pela API — "
+            "só o que foi cadastrado em operação pode ser removido."
+        )
+    return f"Não há procedimento cadastrado em operação para '{canonica}'."
+
+
+def remover(
+    condicao: str,
+    indice: IndiceDocumental,
+    registro: RegistroDocumentos,
+) -> ResultadoRemocao:
+    """Desfaz um cadastro feito em operação, devolvendo a condição à recusa.
+
+    Só alcança o que foi cadastrado em operação. A cobertura declarada em
+    `src/rag/mapeamento.py` é afirmação de projeto, versionada e coberta por teste — é dela
+    que sai a recusa de `eccentric_rotor` do ADR-011 —, e uma rota HTTP não apaga uma linha
+    de código. Para essas condições a remoção não se aplica, e o chamador recebe a recusa.
+
+    A ordem inverte a do cadastro e poda o índice primeiro. Se a operação for interrompida
+    no meio, sobra uma condição que consta como coberta e não recupera trecho algum — um
+    defeito visível na consulta seguinte. A ordem oposta deixaria trechos recuperáveis de
+    um documento que o registro já não conhece, citáveis como fonte legítima, que é
+    exatamente o modo de falha que o ADR-004 existe para impedir.
+    """
+    canonica = validar_condicao(condicao)
+    alvo = registro.buscar(canonica)
+    if alvo is None:
+        raise RemocaoInvalida(_motivo_da_recusa(canonica))
+
+    trechos = indice.remover_documento(alvo.documento)
+    registro.remover(canonica)
+    Path(alvo.arquivo).unlink(missing_ok=True)
+
+    return ResultadoRemocao(condicao=canonica, documento=alvo.documento, trechos=trechos)

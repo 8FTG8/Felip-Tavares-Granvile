@@ -142,10 +142,15 @@ class Roteador:
     def _cobertura(self, condicao: str) -> Cobertura:
         """Cobertura documental da condição, considerando cadastros feitos em operação.
 
-        O mapa estático descreve a base entregue com o projeto; o registro acrescenta os
-        procedimentos cadastrados depois, em resposta às próprias recusas do sistema
-        (ADR-014). A ordem importa: um cadastro em operação sobrepõe-se ao mapa, porque
-        representa conhecimento mais recente da equipe de manutenção.
+        O mapa estático descreve a base entregue com o projeto; o registro **preenche as
+        lacunas** dele com os procedimentos cadastrados depois, em resposta às próprias
+        recusas do sistema (ADR-014).
+
+        A ordem é mapa primeiro: o registro só é consultado onde o mapa não cobre. Um
+        procedimento revisto e versionado não é substituído por um envio feito em
+        operação — a substituição exigiria alterar o mapa, que passa por revisão de
+        código. É a mesma razão pela qual a remoção do ADR-014-A alcança só a camada de
+        cima.
         """
         situacao = cobertura(condicao)
         if situacao.documentada or self._registro is None:

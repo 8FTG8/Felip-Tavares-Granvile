@@ -51,6 +51,17 @@ class DocumentoCadastrado:
     cadastrado_em: datetime
 
 
+def _da_linha(linha: sqlite3.Row) -> DocumentoCadastrado:
+    return DocumentoCadastrado(
+        condicao=linha["condicao"],
+        documento=linha["documento"],
+        arquivo=linha["arquivo"],
+        trechos=linha["trechos"],
+        origem=linha["origem"],
+        cadastrado_em=datetime.fromisoformat(linha["cadastrado_em"]),
+    )
+
+
 class RegistroDocumentos:
     """Associação persistente entre condição e documento cadastrado em operação."""
 
@@ -101,6 +112,19 @@ class RegistroDocumentos:
             )
         return DocumentoCadastrado(condicao, documento, arquivo, trechos, origem, momento)
 
+    def remover(self, condicao: str) -> bool:
+        """Apaga a associação de uma condição, devolvendo se havia alguma.
+
+        O retorno existe para quem só precisa saber se havia. `src/rag/cadastro.py` não o
+        usa porque decide antes, por :meth:`buscar` — de lá precisa também do caminho do
+        arquivo, que a remoção tem de apagar.
+        """
+        with self._conectar() as conexao:
+            cursor = conexao.execute(
+                "DELETE FROM documentos_cadastrados WHERE condicao = ?", (condicao,)
+            )
+        return cursor.rowcount > 0
+
     def documento_de(self, condicao: str) -> str | None:
         with self._conectar() as conexao:
             linha = conexao.execute(
@@ -108,22 +132,24 @@ class RegistroDocumentos:
             ).fetchone()
         return linha["documento"] if linha else None
 
+    def buscar(self, condicao: str) -> DocumentoCadastrado | None:
+        """Cadastro completo de uma condição, com o caminho do arquivo em disco.
+
+        A remoção precisa do caminho tal como foi gravado, e não recomposto a partir do
+        identificador: quem gravou sabe onde pôs.
+        """
+        with self._conectar() as conexao:
+            linha = conexao.execute(
+                "SELECT * FROM documentos_cadastrados WHERE condicao = ?", (condicao,)
+            ).fetchone()
+        return _da_linha(linha) if linha else None
+
     def listar(self) -> list[DocumentoCadastrado]:
         with self._conectar() as conexao:
             linhas = conexao.execute(
                 "SELECT * FROM documentos_cadastrados ORDER BY cadastrado_em DESC"
             ).fetchall()
-        return [
-            DocumentoCadastrado(
-                condicao=linha["condicao"],
-                documento=linha["documento"],
-                arquivo=linha["arquivo"],
-                trechos=linha["trechos"],
-                origem=linha["origem"],
-                cadastrado_em=datetime.fromisoformat(linha["cadastrado_em"]),
-            )
-            for linha in linhas
-        ]
+        return [_da_linha(linha) for linha in linhas]
 
     def __len__(self) -> int:
         with self._conectar() as conexao:

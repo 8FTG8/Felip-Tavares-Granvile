@@ -271,6 +271,14 @@ class DocumentoRegistrado(BaseModel):
     secoes: list[str] = Field(default_factory=list)
 
 
+class DocumentoRemovido(BaseModel):
+    """Cadastro em operação desfeito — a condição volta a ser recusada."""
+
+    condicao: str
+    documento: str
+    trechos_removidos: int = Field(description="Trechos que saíram do índice vetorial")
+
+
 class CoberturaDocumental(BaseModel):
     """Situação documental de uma condição."""
 

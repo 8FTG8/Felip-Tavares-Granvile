@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ApiIndisponivel, api, RequisicaoRecusada } from "../api/cliente";
-import type { CoberturaDocumental, DocumentoRegistrado, EstadoSistema } from "../api/tipos";
+import type {
+  CoberturaDocumental,
+  DocumentoRegistrado,
+  DocumentoRemovido,
+  EstadoSistema,
+} from "../api/tipos";
 import {
   AvisoApi,
   Botao,
@@ -38,6 +43,10 @@ export function Documentos({
   const [sucesso, setSucesso] = useState<DocumentoRegistrado | null>(null);
   const campoArquivo = useRef<HTMLInputElement>(null);
 
+  /** Condição aguardando confirmação de remoção — uma por vez. */
+  const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [removido, setRemovido] = useState<DocumentoRemovido | null>(null);
+
   // Chegando pela recusa da análise, o campo já abre na condição certa.
   useEffect(() => {
     if (condicaoInicial) setCondicao(condicaoInicial);
@@ -52,6 +61,7 @@ export function Documentos({
     setErro(null);
     setApiFora(false);
     setSucesso(null);
+    setRemovido(null);
     setEnviando(true);
     try {
       setSucesso(await api.cadastrarDocumento(escolhida, arquivo));
@@ -68,6 +78,24 @@ export function Documentos({
       else setErro(String(falha));
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function remover(condicao: string) {
+    setErro(null);
+    setApiFora(false);
+    setSucesso(null);
+    try {
+      setRemovido(await api.removerDocumento(condicao));
+      // A recarga devolve cobertura e estado do sistema juntos: a linha volta sozinha
+      // para "Sem procedimento" e a contagem da lateral acompanha.
+      aoCadastrar();
+    } catch (falha) {
+      if (falha instanceof ApiIndisponivel) setApiFora(true);
+      else if (falha instanceof RequisicaoRecusada) setErro(falha.message);
+      else setErro(String(falha));
+    } finally {
+      setConfirmando(null);
     }
   }
 
@@ -133,6 +161,20 @@ export function Documentos({
                   <p className="text-nota text-tinta-secundaria">{situacao.justificativa}</p>
                 )}
               </div>
+
+              {/* A remoção só alcança o que foi cadastrado em operação: a cobertura da
+                  base entregue é versionada em código (ADR-014-A). */}
+              {situacao.cadastrado_em_operacao && (
+                <div className="sm:ml-auto shrink-0">
+                  <Remocao
+                    condicao={situacao.condicao}
+                    confirmando={confirmando === situacao.condicao}
+                    aoPedir={() => setConfirmando(situacao.condicao)}
+                    aoCancelar={() => setConfirmando(null)}
+                    aoConfirmar={() => remover(situacao.condicao)}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </Cartao>
@@ -227,9 +269,81 @@ export function Documentos({
                 </p>
               </div>
             )}
+
+            {removido && (
+              <div
+                role="status"
+                className="mt-4 bg-fundo border border-borda rounded-controle p-3"
+              >
+                <p className="text-corpo text-tinta">
+                  <code>{removido.documento}</code> foi removido —{" "}
+                  {removido.trechos_removidos} seções saíram do índice.
+                </p>
+                <p className="text-nota text-tinta-secundaria mt-1">
+                  <strong>{nomeCondicao(removido.condicao)}</strong> volta a ser recusado por
+                  falta de documentação, já na próxima consulta.
+                </p>
+              </div>
+            )}
           </Cartao>
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Remoção em dois passos, na própria linha.
+ *
+ * A ação é destrutiva e não tem desfazer — o PDF sai do disco junto —, então a
+ * confirmação é obrigatória. Ela acontece na linha, e não em diálogo, porque é a linha
+ * que diz *qual* documento vai embora: um modal cobriria a lista e obrigaria a repetir no
+ * texto o que já está visível dois centímetros abaixo do ponteiro.
+ */
+function Remocao({
+  condicao,
+  confirmando,
+  aoPedir,
+  aoCancelar,
+  aoConfirmar,
+}: {
+  condicao: string;
+  confirmando: boolean;
+  aoPedir: () => void;
+  aoCancelar: () => void;
+  aoConfirmar: () => void;
+}) {
+  if (!confirmando) {
+    return (
+      <button
+        onClick={aoPedir}
+        aria-label={`Remover o procedimento de ${nomeCondicao(condicao)}`}
+        className="foco text-nota font-medium text-tinta-secundaria hover:text-critico rounded-controle px-2 py-1 transition"
+      >
+        Remover
+      </button>
+    );
+  }
+
+  // Os rótulos se repetem em cada linha da lista, então o que identifica a ação para
+  // quem navega por leitor de tela é o `aria-label` — "Confirmar" sozinho não diz o quê.
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-nota text-tinta-secundaria mr-1">Remover?</span>
+      <button
+        onClick={aoConfirmar}
+        aria-label={`Confirmar a remoção do procedimento de ${nomeCondicao(condicao)}`}
+        className="foco text-nota font-semibold text-critico bg-critico-suave border border-critico/25 rounded-controle px-2 py-1 transition"
+      >
+        Confirmar
+      </button>
+      <button
+        onClick={aoCancelar}
+        aria-label={`Cancelar a remoção do procedimento de ${nomeCondicao(condicao)}`}
+        className="foco text-nota font-medium text-tinta-secundaria hover:bg-ativo rounded-controle px-2 py-1 transition"
+      >
+        Cancelar
+      </button>
+    </div>
   );
 }

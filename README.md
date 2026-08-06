@@ -73,7 +73,7 @@ respondendo normalmente.
 ## Decisões técnicas
 
 Cada decisão relevante está registrada em [docs/decisoes.md](docs/decisoes.md), no formato
-contexto → alternativas → escolha → justificativa → consequências aceitas. São 19 registros;
+contexto → alternativas → escolha → justificativa → consequências aceitas. São 20 registros;
 os principais:
 
 | Decisão | Escolha | Porquê |
@@ -98,6 +98,7 @@ Sete rotas, com OpenAPI publicado em `/docs`:
 | `POST` | `/chat` | Consulta livre, sujeita às mesmas barreiras |
 | `POST` | `/chat/fluxo` | Idem, com a resposta transmitida em partes e o roteamento nos cabeçalhos |
 | `POST` | `/documentos` | Cadastro de procedimento em operação, sem reiniciar o serviço (ADR-014) |
+| `DELETE` | `/documentos/{condicao}` | Desfaz um cadastro em operação; a condição volta a ser recusada (ADR-014-A) |
 | `GET` | `/documentos/cobertura` | Situação documental de cada defeito, com justificativa das lacunas |
 | `GET` | `/estatisticas` | Panorama do histórico e campanhas de ensaio (ADR-017) |
 | `GET` | `/sistema` | Modelo em uso, disponibilidade, limiar e tamanho dos índices |
@@ -109,9 +110,10 @@ importa módulo algum do domínio, e nenhuma regra de decisão vive nela.
 
 O design system está inteiro em `web/src/index.css` e é **verificado na compilação**:
 `npm run tokens` reprova medida absoluta, cor literal, opacidade fora dos degraus e token
-declarado que ninguém consome; `npm run contraste` mede os 20 pares de cor que ocorrem na
-interface contra o mínimo da WCAG 2.1 AA, lendo os valores do próprio CSS. Ambos rodam
-dentro do `npm run build`. O raciocínio está no ADR-015.
+declarado que ninguém consome; `npm run contraste` mede os 21 pares de cor que ocorrem na
+interface contra o mínimo da WCAG 2.1 AA, mais 4 separações entre superfícies, lendo os
+valores do próprio CSS. Ambos rodam dentro do `npm run build`. O raciocínio está no
+ADR-015.
 
 ## Dados
 
@@ -146,7 +148,7 @@ src/
   rag/         ingestão documental, roteador do guardrail e geração
   api/         camada FastAPI e agregações do painel
 storage/       índice vetorial, PDFs cadastrados em operação e SQLite (gerados)
-tests/         253 testes automatizados
+tests/         269 testes automatizados
 web/           interface React
   src/         telas, componentes e o design system
   scripts/     verificadores de tokens e de contraste
@@ -224,7 +226,7 @@ indisponível, e a interface diz exatamente isso.
 ## Verificação
 
 ```bash
-pytest -m "not lento"        # 253 testes, ~5 s
+pytest -m "not lento"        # 269 testes, ~7 s
 pytest                       # inclui os que exercitam o Ollama real
 cd web && npm run build      # tipos, tokens de estilo e contraste WCAG
 ```

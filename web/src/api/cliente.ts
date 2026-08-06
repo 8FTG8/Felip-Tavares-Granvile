@@ -9,6 +9,7 @@ import type {
   AnaliseEvento,
   CoberturaDocumental,
   DocumentoRegistrado,
+  DocumentoRemovido,
   EstadoSistema,
   EventoSensor,
   PainelHistorico,
@@ -34,11 +35,16 @@ export class ModeloIndisponivel extends Error {}
 
 /**
  * Traduz uma resposta de erro na exceção correspondente — três situações com três ações
- * corretivas: 415/422 é o que foi enviado e merece a mensagem da API; 503 é o serviço de
- * modelos fora do ar; o resto é indisponibilidade da própria API.
+ * corretivas: 404/415/422 é o que foi enviado e merece a mensagem da API; 503 é o serviço
+ * de modelos fora do ar; o resto é indisponibilidade da própria API.
+ *
+ * O 404 entra no primeiro grupo porque os caminhos chamados aqui são literais e cobertos
+ * por tipo: rota inexistente é erro de programação, não condição de operação. O 404 que a
+ * interface pode provocar é o da remoção de um documento que já não está cadastrado, e
+ * ele traz o motivo escrito.
  */
 async function lancarErro(resposta: Response, caminho: string): Promise<never> {
-  if (resposta.status === 415 || resposta.status === 422) {
+  if (resposta.status === 404 || resposta.status === 415 || resposta.status === 422) {
     const corpo = await resposta.json().catch(() => null);
     throw new RequisicaoRecusada(detalhar(corpo) ?? "Requisição recusada pela API.");
   }
@@ -104,6 +110,12 @@ export const api = {
     dados.append("arquivo", arquivo);
     return requisitar<DocumentoRegistrado>("/documentos", { method: "POST", body: dados });
   },
+
+  /** Desfaz um cadastro feito em operação: a condição volta a ser recusada. */
+  removerDocumento: (condicao: string) =>
+    requisitar<DocumentoRemovido>(`/documentos/${encodeURIComponent(condicao)}`, {
+      method: "DELETE",
+    }),
 
   /**
    * Conversa com a resposta transmitida em partes.
