@@ -545,6 +545,28 @@ em hardware menor em vez de deixar de funcionar.
 
 ## ADR-014 — Cobertura documental em duas camadas: mapa versionado e registro operacional
 
+> **Revisão 1 (06/08/2026)** — a consequência aceita registrada abaixo *não estava
+> implementada*. O recadastro substituía a linha do SQLite, como afirmado, mas o índice
+> vetorial é gravado por `upsert`, que atualiza os ids recebidos e **não apaga os
+> ausentes**: um procedimento recadastrado com menos seções que o anterior deixava as
+> excedentes recuperáveis, ainda associadas ao mesmo documento. A prescrição passaria a
+> citar seção de procedimento revogado — com a aparência de fonte legítima, que é o modo
+> de falha que o ADR-004 existe para impedir.
+>
+> Corrigido com `IndiceDocumental.remover_documento`, chamado antes da indexação em
+> `cadastrar`. Na mesma revisão, a ordem dos passos passou a validar o arquivo **antes**
+> de gravar: a anterior sobrescrevia o PDF de destino e o apagava ao falhar na extração,
+> de modo que um envio inválido destruía o procedimento válido que estava cadastrado.
+>
+> **Consequência de método.** O teste `test_recadastro_substitui` repetia a frase desta
+> seção na docstring e verificava `len(registro) == 1` — a linha do banco relacional, não
+> o índice de onde sai a citação. E cadastrava o mesmo arquivo duas vezes, de modo que a
+> contagem de seções coincidia e a falha não podia aparecer. O dublê `IndiceFalso`
+> acumulava, reproduzindo fielmente o defeito. A regra que fica: **consequência aceita
+> declarada em ADR precisa de um teste que a verifique** — e o teste precisa exercitar a
+> mudança que ela descreve, não uma repetição idêntica. É o ADR-017 aplicado a
+> consequências, e não a afirmações de interface.
+
 **Contexto.** O ADR-010 estabeleceu o mapa defeito → documento como primeira barreira do
 guardrail, e o enunciado exige que o sistema, ao recusar, sugira ao usuário registrar um novo
 documento para o defeito. Um mapa estático em código torna essa sugestão vazia: o técnico

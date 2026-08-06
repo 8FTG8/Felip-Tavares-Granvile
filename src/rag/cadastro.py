@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.ingestion.rotulos import DEFEITOS, ESTADOS, normalizar
-from src.rag.documentos import carregar_documento
+from src.rag.documentos import Trecho, extrair_texto, fatiar
 from src.rag.indice_documental import IndiceDocumental
 from src.rag.registro import DocumentoCadastrado, RegistroDocumentos
 
@@ -63,29 +63,62 @@ def validar_condicao(condicao: str) -> str:
     return canonica
 
 
+ILEGIVEL = (
+    "Não foi possível extrair texto do documento. Verifique se o arquivo é um PDF "
+    "legível — digitalizações de baixa qualidade podem não ser reconhecidas."
+)
+
+
+def _extrair(arquivo: Path, identificador: str) -> list[Trecho]:
+    """Lê e fatia o PDF enviado, traduzindo qualquer falha de leitura em recusa.
+
+    A extração acontece a partir do arquivo recebido, e não do destino final: um PDF
+    ilegível precisa ser recusado **antes** de qualquer escrita, sob pena de um envio
+    inválido apagar o procedimento que já estava cadastrado para a condição.
+
+    Sem a tradução da exceção, um arquivo corrompido subiria como erro não tratado e a
+    API responderia 500 — dizendo ao integrador que o serviço tem defeito quando o
+    problema está no arquivo que ele mandou. A mensagem abaixo é a que descreve o caso,
+    e antes desta função ela era inalcançável: só disparava para PDF válido de texto
+    vazio, nunca para o arquivo ilegível que ela descreve.
+    """
+    try:
+        texto, origem = extrair_texto(arquivo, usar_cache=False)
+    except Exception as erro:  # noqa: BLE001 — qualquer falha de leitura é o mesmo caso
+        raise CadastroInvalido(ILEGIVEL) from erro
+
+    trechos = fatiar(texto, documento=identificador, origem=origem)
+    if not trechos or not any(t.texto.strip() for t in trechos):
+        raise CadastroInvalido(ILEGIVEL)
+    return trechos
+
+
 def cadastrar(
     condicao: str,
     arquivo: Path,
     indice: IndiceDocumental,
     registro: RegistroDocumentos,
 ) -> ResultadoCadastro:
-    """Extrai, fatia, indexa e registra um procedimento para a condição informada."""
+    """Extrai, fatia, indexa e registra um procedimento para a condição informada.
+
+    A ordem dos passos é a garantia de que um cadastro inválido não danifica o anterior:
+    valida-se o arquivo enviado antes de tocar em qualquer estado, e só então grava-se o
+    PDF, poda-se o índice e registra-se a associação.
+    """
     canonica = validar_condicao(condicao)
     identificador = _identificador(canonica)
+    trechos = _extrair(arquivo, identificador)
 
     DIRETORIO_CADASTRADOS.mkdir(parents=True, exist_ok=True)
     destino = DIRETORIO_CADASTRADOS / f"{identificador}.pdf"
     destino.write_bytes(arquivo.read_bytes())
 
-    trechos = carregar_documento(destino, usar_cache=False)
-    if not trechos or not any(t.texto.strip() for t in trechos):
-        destino.unlink(missing_ok=True)
-        raise CadastroInvalido(
-            "Não foi possível extrair texto do documento. Verifique se o arquivo é um PDF "
-            "legível — digitalizações de baixa qualidade podem não ser reconhecidas."
-        )
-
+    # Poda antes de indexar: o upsert atualiza os ids recebidos e não apaga os ausentes,
+    # de modo que um procedimento com menos seções que o anterior deixaria as excedentes
+    # recuperáveis — citadas como fonte de um documento que já foi substituído.
+    indice.remover_documento(identificador)
     indice.indexar(tuple(trechos))
+
     cadastrado = registro.registrar(
         condicao=canonica,
         documento=identificador,

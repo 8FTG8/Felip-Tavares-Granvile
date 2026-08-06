@@ -32,9 +32,15 @@ from tests.test_roteador import IndiceFalso
 
 PROCEDIMENTO = DIRETORIO_DOCUMENTOS / "Doc2.pdf"
 
+#: Par de procedimentos com contagens de seção diferentes, para exercitar o recadastro.
+#: Doc4 tem 19 seções e Doc2, 16 — a redução é o que expõe trecho obsoleto sobrevivente.
+DOCUMENTO_MAIOR = DIRETORIO_DOCUMENTOS / "Doc4.pdf"
+DOCUMENTO_MENOR = PROCEDIMENTO
+SECOES_MENOR = 16
+
 
 def _pular_sem_base() -> None:
-    if not PROCEDIMENTO.exists():
+    if not PROCEDIMENTO.exists() or not DOCUMENTO_MAIOR.exists():
         pytest.skip("base documental ausente")
 
 
@@ -123,6 +129,59 @@ class TestCadastro:
                     files={"arquivo": ("p.pdf", arquivo, "application/pdf")},
                 )
         assert len(registro) == 1
+
+    def test_recadastro_nao_deixa_secao_obsoleta_no_indice(
+        self, cliente: TestClient, indice_documental: IndiceFalso
+    ) -> None:
+        """O procedimento substituído sai do índice por inteiro.
+
+        O ``upsert`` atualiza os ids recebidos e não apaga os ausentes. Recadastrar com
+        menos seções que o anterior deixava as excedentes recuperáveis, ainda associadas
+        ao mesmo documento: a prescrição passaria a citar seção de procedimento revogado,
+        com aparência de fonte legítima. Repetir o mesmo arquivo não exporia a falha —
+        daí os dois documentos terem contagens de seção diferentes.
+        """
+        _pular_sem_base()
+        for origem in (DOCUMENTO_MAIOR, DOCUMENTO_MENOR):
+            with origem.open("rb") as arquivo:
+                resposta = cliente.post(
+                    "/documentos",
+                    data={"condicao": "ventoinha"},
+                    files={"arquivo": ("p.pdf", arquivo, "application/pdf")},
+                )
+                assert resposta.status_code == 201
+
+        assert len(indice_documental.indexados) == SECOES_MENOR
+        assert max(t.numero_secao for t in indice_documental.indexados) == SECOES_MENOR
+
+    def test_envio_ilegivel_preserva_o_cadastro_anterior(
+        self, cliente: TestClient, registro: RegistroDocumentos, indice_documental: IndiceFalso
+    ) -> None:
+        """Um envio inválido é recusado antes de tocar em qualquer estado.
+
+        A ordem anterior gravava o PDF por cima do destino e só então tentava extrair,
+        apagando o arquivo ao falhar: um upload ruim destruía o procedimento válido que
+        estava cadastrado, enquanto registro e índice seguiam apontando para ele.
+        """
+        _pular_sem_base()
+        with DOCUMENTO_MENOR.open("rb") as arquivo:
+            cliente.post(
+                "/documentos",
+                data={"condicao": "ventoinha"},
+                files={"arquivo": ("p.pdf", arquivo, "application/pdf")},
+            )
+
+        resposta = cliente.post(
+            "/documentos",
+            data={"condicao": "ventoinha"},
+            files={"arquivo": ("corrompido.pdf", b"isto nao e um pdf", "application/pdf")},
+        )
+
+        assert resposta.status_code == 422
+        assert "PDF" in resposta.json()["detail"]
+        assert registro.documento_de("ventoinha") == "DocOp-ventoinha"
+        assert len(indice_documental.indexados) == SECOES_MENOR
+        assert Path(registro.listar()[0].arquivo).exists()
 
     def test_recusa_arquivo_nao_pdf(self, cliente: TestClient) -> None:
         resposta = cliente.post(

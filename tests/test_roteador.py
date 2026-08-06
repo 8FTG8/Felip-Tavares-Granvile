@@ -31,9 +31,21 @@ class IndiceFalso:
     indexados: list = field(default_factory=list)
 
     def indexar(self, trechos=None, recriar: bool = False) -> int:
-        """Registra o que seria indexado, sem carregar o modelo de embeddings."""
+        """Registra o que seria indexado, sem carregar o modelo de embeddings.
+
+        Acumula, como o ``upsert`` do Chroma: quem recadastra é que precisa podar antes.
+        Um dublê que substituísse silenciosamente esconderia a falha que
+        :meth:`remover_documento` existe para evitar.
+        """
         self.indexados.extend(trechos or [])
         return len(trechos or [])
+
+    def remover_documento(self, documento: str) -> int:
+        """Remove os trechos do documento, como faz o índice real."""
+        restantes = [t for t in self.indexados if t.documento != documento]
+        removidos = len(self.indexados) - len(restantes)
+        self.indexados[:] = restantes
+        return removidos
 
     def buscar(self, pergunta: str, documento: str | None = None, trechos: int = 4):
         self.documento_devolvido = documento

@@ -114,6 +114,24 @@ class IndiceDocumental:
         )
         return len(base)
 
+    def remover_documento(self, documento: str) -> int:
+        """Remove todos os trechos de um documento, devolvendo quantos saíram.
+
+        Existe para o recadastro (ADR-010, ADR-014). ``indexar`` grava por ``upsert``, que
+        atualiza os ids recebidos e **não apaga os ausentes**: um procedimento
+        recadastrado com menos seções que o anterior deixaria as seções excedentes no
+        índice, ainda associadas ao mesmo documento e ainda recuperáveis. A recomendação
+        passaria a citar seção de procedimento revogado, com aparência de fonte legítima.
+
+        A poda é responsabilidade de quem recadastra, não de :meth:`indexar`: a base
+        entregue com o projeto é indexada por inteiro e não deve ser podada.
+        """
+        alvos = self._colecao.get(where={"documento": documento}, include=[])
+        ids = alvos.get("ids") or []
+        if ids:
+            self._colecao.delete(ids=ids)
+        return len(ids)
+
     def garantir_indexado(self) -> int:
         """Indexa apenas se a coleção estiver vazia."""
         if self._colecao.count() == 0:
