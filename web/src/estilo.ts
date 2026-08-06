@@ -102,8 +102,11 @@ export const MARGEM = {
 } as const;
 
 /**
- * Largura de que o eixo Y precisa para escrever o maior valor sem cortá-lo. O padrão
- * do Recharts são 60px fixos, que sobram para `800` e faltam para `18000`.
+ * Espaço que o eixo Y ocupa, para descontar da área de desenho.
+ *
+ * É estimativa, e só serve para decidir se um rótulo de faixa cabe — o eixo em si usa
+ * `width="auto"`, e quem mede os rótulos que ele de fato renderizou é o Recharts.
+ * Errar aqui esconde ou mostra um rótulo no limite, e nada além disso.
  */
 export function larguraEixoValor(maximo: number): number {
   const rotulo = String(Math.round(maximo));
@@ -117,19 +120,28 @@ export function larguraDesenho(larguraDoCartao: number, larguraDoEixo: number): 
 }
 
 /**
- * Largura de um texto em pixels, medida num `canvas` fora da árvore com a mesma fonte
- * da página. Estimar por número de caracteres erra em nomes que misturam `i`, `l` e
- * `m`, que é o caso dos nomes de condição.
+ * Largura de um texto em pixels, medida num elemento fora de vista dentro do próprio
+ * documento.
+ *
+ * A régua é um `<span>`, e não um `canvas`, porque `ctx.font` exige a abreviação de
+ * fonte do CSS e ignora em silêncio o que não consegue interpretar — a pilha de
+ * `--font-sans` não passa, e o contexto continua no padrão de 10px, devolvendo uma
+ * largura pequena demais. Um elemento no documento herda a fonte que a página está
+ * usando, seja qual for a que o navegador escolheu da pilha.
  */
-let pincel: CanvasRenderingContext2D | null = null;
+let regua: HTMLSpanElement | null = null;
 
 export function larguraTexto(texto: string, tamanho: number): number {
-  pincel ??= document.createElement("canvas").getContext("2d");
-  // Sem canvas, devolve uma largura exagerada de propósito: esconde o rótulo, que é
-  // preferível a sobrepô-lo.
-  if (!pincel) return texto.length * tamanho;
-  pincel.font = `${tamanho}px ${getComputedStyle(document.body).fontFamily}`;
-  return pincel.measureText(texto).width;
+  if (!regua) {
+    regua = document.createElement("span");
+    regua.setAttribute("aria-hidden", "true");
+    regua.style.cssText =
+      "position:absolute;top:-9999px;left:-9999px;white-space:pre;visibility:hidden";
+    document.body.appendChild(regua);
+  }
+  regua.style.fontSize = `${tamanho}px`;
+  regua.textContent = texto;
+  return regua.getBoundingClientRect().width;
 }
 
 /* ── Movimento ───────────────────────────────────────────────────────────────── */

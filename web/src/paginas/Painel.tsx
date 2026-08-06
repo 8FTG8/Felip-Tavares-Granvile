@@ -494,7 +494,9 @@ function SerieTemporal({
             tickFormatter={(dia: string) => dia.slice(8, 10) + "/" + dia.slice(5, 7)}
             minTickGap={espacoMarcacao()}
           />
-          <YAxis width={larguraEixo} tickLine={false} axisLine={false} tick={marcacao()} />
+          {/* `width="auto"` mede os rótulos renderizados. Fixo em 60px, que é o padrão
+              do Recharts, `18000` sai como `8000`. */}
+          <YAxis width="auto" tickLine={false} axisLine={false} tick={marcacao()} />
           <Tooltip content={<Dica sufixo="eventos" />} />
           <Area
             type="monotone"
@@ -519,12 +521,7 @@ function Rotacao({ dados }: { dados: Record<string, number> }) {
     <Moldura>
       <BarChart data={serie} margin={MARGEM.serie}>
         <XAxis dataKey="rpm" tickLine={false} axisLine={{ stroke: COR.borda }} tick={marcacao()} />
-        <YAxis
-          width={larguraEixoValor(maximo)}
-          tickLine={false}
-          axisLine={false}
-          tick={marcacao()}
-        />
+        <YAxis width="auto" tickLine={false} axisLine={false} tick={marcacao()} />
         <Tooltip content={<Dica sufixo="eventos" />} cursor={CURSOR} />
         <Bar dataKey="eventos" radius={[raio, raio, 0, 0]}>
           {serie.map((item) => (
