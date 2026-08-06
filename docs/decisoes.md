@@ -108,8 +108,9 @@ O broker MQTT descrito em `arquitetura.md` §8 **não** entrou na orquestração
 adaptador que fale com ele, e subir um broker inerte seria encenar uma integração que não
 foi feita.
 
-**O empacotamento pagou por si.** Construir a imagem e subir a pilha expôs dois defeitos
-que a máquina de desenvolvimento escondia, ambos fatais para quem clonasse o repositório:
+**O empacotamento pagou por si.** Construir a imagem e subir a pilha **a partir de um
+clone limpo** expôs três defeitos que a máquina de desenvolvimento escondia, todos fatais
+para quem recebesse o projeto:
 
 - `requirements.txt` declarava `httpx==0.28.1`, incompatível com o cliente do Ollama
   (`httpx<0.28.0`). O ambiente local usava 0.27.2 desde sempre — o arquivo é que estava
@@ -122,10 +123,17 @@ que a máquina de desenvolvimento escondia, ambos fatais para quem clonasse o re
   construção e alocavam cada uma sua cópia do modelo de 1,1 GB. Sob o limite de memória
   do contêiner, o processo era encerrado e reiniciado em laço. Com 15,7 GB de RAM na
   máquina de desenvolvimento, o mesmo defeito só desperdiçava memória em silêncio.
+- Faltavam três bibliotecas de sistema do caminho de OCR: `libxcb1`, exigida pelo pdfium
+  que rasteriza as páginas, e `libgl1` com `libglib2.0-0`, exigidas pelo OpenCV do
+  reconhecedor. Este defeito só apareceu no **segundo** teste, o do clone limpo: no
+  primeiro, o cache de extração vinha montado do disco da máquina e o OCR nunca chegava a
+  rodar. Um projeto recém-clonado — o caso de quem recebe a entrega — quebrava ao indexar
+  o Doc1.
 
-**Consequência de método:** *empacotar é um teste*. Ele exercita a hipótese que a suíte
-não alcança — a de que o projeto se monta do zero — e é a única verificação que reproduz
-o que a banca vai fazer.
+**Consequência de método:** *empacotar é um teste, e clonar é outro*. O primeiro exercita
+a hipótese de que o projeto se monta do zero; o segundo, a de que ele roda **sem nada da
+máquina de origem**. A suíte não alcança nenhuma das duas, porque testes rodam sobre um
+ambiente já montado — e foi o segundo teste que pegou o defeito que o primeiro não pegou.
 
 ---
 

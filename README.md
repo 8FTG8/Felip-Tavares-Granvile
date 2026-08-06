@@ -175,6 +175,11 @@ docker compose up -d --build
 docker compose exec ollama ollama pull qwen2.5:3b-instruct
 ```
 
+A primeira chamada à API constrói os índices e pode levar alguns minutos — inclui o OCR
+do Doc1 (~1 min) e, se for a primeira vez na máquina, o download do modelo de embeddings.
+Enquanto isso o serviço aparece como `starting` na verificação de saúde, não como
+`unhealthy`. Depois disso tudo vem de volume e a subida é imediata.
+
 Interface em `http://localhost`, API em `http://localhost:8000`, documentação interativa
 em `http://localhost:8000/docs`. São três serviços — `api`, `web` (nginx servindo o
 estático e encaminhando `/api`) e `ollama`. O detalhamento está em

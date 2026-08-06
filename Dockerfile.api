@@ -6,10 +6,20 @@
 # e responde em 115 ms, medido.
 FROM python:3.12-slim
 
-# `libgomp1` é exigido pelo runtime ONNX do OCR (ADR-012); `curl` serve à verificação de
-# saúde declarada no compose.
+# Dependências de sistema do caminho de OCR (ADR-012), exercitado apenas pelo Doc1:
+#
+#   libxcb1                  pdfium, que rasteriza as páginas (pypdfium2)
+#   libgomp1                 runtime ONNX do reconhecedor (rapidocr-onnxruntime)
+#   libgl1, libglib2.0-0     OpenCV, que o reconhecedor usa para tratar a imagem
+#
+# Nenhuma delas falta numa máquina de desenvolvimento, e a ausência **não aparece** onde o
+# cache de extração já está preenchido: o OCR simplesmente não roda. Só um clone limpo
+# revela — que é exatamente o que quem recebe o projeto vai fazer.
+#
+# `curl` serve à verificação de saúde declarada no compose.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgomp1 curl \
+    && apt-get install -y --no-install-recommends \
+        libxcb1 libgomp1 libgl1 libglib2.0-0 curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
