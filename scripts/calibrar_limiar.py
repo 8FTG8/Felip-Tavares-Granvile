@@ -32,7 +32,7 @@ from dataclasses import dataclass
 
 from src.rag.indice_documental import IndiceDocumental
 from src.rag.mapeamento import MAPA
-from src.rag.roteador import montar_consulta
+from src.rag.roteador import TRECHOS_PADRAO, montar_consulta
 
 
 @dataclass(frozen=True)
@@ -117,11 +117,17 @@ def montar_casos() -> list[Caso]:
 
 
 def medir(indice: IndiceDocumental) -> list[tuple[Caso, float]]:
-    """Mede a relevância de cada caso exatamente como a produção mede."""
+    """Mede a relevância de cada caso exatamente como a produção mede.
+
+    O número de trechos vem de :data:`TRECHOS_PADRAO`, e não de um literal: como a
+    relevância registrada é o máximo entre os recuperados, medir com uma profundidade e
+    operar com outra deslocaria o corte silenciosamente — a mesma armadilha que o
+    cabeçalho deste módulo aponta para a formulação da consulta.
+    """
     medidas: list[tuple[Caso, float]] = []
     for caso in montar_casos():
         consulta = montar_consulta(caso.condicao, caso.pergunta)
-        recuperados = indice.buscar(consulta, documento=caso.documento, trechos=4)
+        recuperados = indice.buscar(consulta, documento=caso.documento, trechos=TRECHOS_PADRAO)
         medidas.append((caso, max((t.relevancia for t in recuperados), default=0.0)))
     return medidas
 

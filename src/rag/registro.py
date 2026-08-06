@@ -18,6 +18,8 @@ onde é consultado.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -58,10 +60,23 @@ class RegistroDocumentos:
         with self._conectar() as conexao:
             conexao.executescript(ESQUEMA)
 
-    def _conectar(self) -> sqlite3.Connection:
+    @contextmanager
+    def _conectar(self) -> Iterator[sqlite3.Connection]:
+        """Conexão por operação, com transação confirmada e arquivo liberado ao final.
+
+        ``with sqlite3.connect(...)`` confirma a transação mas **não fecha** a conexão: os
+        descritores ficavam abertos até o coletor de lixo passar, o que no Windows mantém
+        o arquivo travado. Abrir por operação é adequado aqui — o registro é consultado a
+        cada decisão do roteador, e uma conexão de curta duração dispensa a coordenação
+        entre as várias threads em que o FastAPI executa as rotas síncronas.
+        """
         conexao = sqlite3.connect(self._caminho)
         conexao.row_factory = sqlite3.Row
-        return conexao
+        try:
+            with conexao:
+                yield conexao
+        finally:
+            conexao.close()
 
     def registrar(
         self, condicao: str, documento: str, arquivo: str, trechos: int, origem: str
@@ -109,13 +124,6 @@ class RegistroDocumentos:
             )
             for linha in linhas
         ]
-
-    def remover(self, condicao: str) -> bool:
-        with self._conectar() as conexao:
-            cursor = conexao.execute(
-                "DELETE FROM documentos_cadastrados WHERE condicao = ?", (condicao,)
-            )
-        return cursor.rowcount > 0
 
     def __len__(self) -> int:
         with self._conectar() as conexao:

@@ -55,7 +55,12 @@ class PanoramaHistorico:
 
 @dataclass(frozen=True)
 class BlocoDeCampanha:
-    """Trecho contíguo de dias em que um mesmo defeito domina os registros.
+    """Sequência de dias com registro em que um mesmo defeito domina.
+
+    "Contíguo" é na ordem dos dias que têm dado, não no calendário: dois dos dezoito
+    blocos abrangem um intervalo maior que sua contagem de dias, porque a bancada ficou
+    parada no meio. A distinção é registrada aqui para que a faixa desenhada no painel
+    não seja lida como cobertura contínua de ensaio.
 
     Substituiu um `janelas_por_condicao` que guardava, por condição, o primeiro e o
     último evento. Aquela estatística descrevia mal o histórico: `desbalanceado` é
@@ -82,7 +87,7 @@ class BlocoDeCampanha:
 
 
 def _blocos_de_campanha(defeitos: pd.DataFrame) -> list[BlocoDeCampanha]:
-    """Agrupa dias consecutivos que compartilham a mesma condição dominante."""
+    """Agrupa dias com registro consecutivos que compartilham a condição dominante."""
     if defeitos.empty:
         return []
 
