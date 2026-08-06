@@ -16,6 +16,7 @@ from src.rag.gerador import (
     MODELO_REDUZIDO,
     TEMPERATURA,
     Gerador,
+    ModeloIndisponivel,
 )
 from src.rag.indice_documental import TrechoRecuperado
 from src.rag.roteador import Roteador
@@ -28,6 +29,9 @@ class ClienteFalso:
 
     resposta: str = "Procedimento recomendado (Doc6, seção 16)."
     chamadas: list[dict] = field(default_factory=list)
+    catalogo: list[str] = field(default_factory=lambda: [MODELO_PRODUCAO, MODELO_REDUZIDO])
+    """Modelos baixados na máquina simulada. O padrão traz os dois, para que os testes
+    não dependam de qual deles ``MODELO_LLM`` selecionou no ambiente."""
 
     def chat(self, **kwargs):
         self.chamadas.append(kwargs)
@@ -36,7 +40,7 @@ class ClienteFalso:
         return {"message": {"content": self.resposta}}
 
     def list(self):
-        return {"models": [{"model": MODELO_PRODUCAO}]}
+        return {"models": [{"model": nome} for nome in self.catalogo]}
 
 
 @pytest.fixture
@@ -163,6 +167,26 @@ class TestModeloConfiguravel:
 
     def test_disponibilidade_verificavel(self, cliente: ClienteFalso) -> None:
         assert Gerador(cliente=cliente).disponivel()  # type: ignore[arg-type]
+
+    def test_outro_modelo_da_familia_nao_serve(self) -> None:
+        """Ter o 3B baixado não torna o 7B disponível.
+
+        A verificação comparava apenas a família (`qwen2.5`), de modo que `GET /sistema`
+        declarava disponível um modelo ausente — e a falha só aparecia na geração, já sem
+        a mensagem que manda baixá-lo. O README pede os dois modelos e alterna por
+        `MODELO_LLM`, então o descompasso é o caso provável.
+        """
+        cliente = ClienteFalso(catalogo=[MODELO_REDUZIDO])
+        gerador = Gerador(modelo=MODELO_PRODUCAO, cliente=cliente)  # type: ignore[arg-type]
+
+        assert not gerador.disponivel()
+        with pytest.raises(ModeloIndisponivel, match="ollama pull"):
+            gerador.verificar()
+
+    def test_etiqueta_latest_e_equivalente_a_sua_ausencia(self) -> None:
+        """O Ollama devolve ora `qwen2.5`, ora `qwen2.5:latest`, conforme como foi baixado."""
+        cliente = ClienteFalso(catalogo=["qwen2.5:latest"])
+        assert Gerador(modelo="qwen2.5", cliente=cliente).disponivel()  # type: ignore[arg-type]
 
 
 @pytest.mark.lento

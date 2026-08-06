@@ -64,6 +64,16 @@ quando o procedimento for sequencial.
 mencionarem."""
 
 
+def _com_etiqueta(modelo: str) -> str:
+    """Nome do modelo com a etiqueta explícita, para comparação exata.
+
+    O Ollama trata ``qwen2.5`` e ``qwen2.5:latest`` como o mesmo modelo e devolve ora um,
+    ora outro conforme como foi baixado. Normalizar os dois lados evita que a comparação
+    dependa dessa escolha.
+    """
+    return modelo if ":" in modelo else f"{modelo}:latest"
+
+
 @dataclass(frozen=True)
 class Recomendacao:
     """Resposta final entregue ao usuário."""
@@ -282,6 +292,13 @@ class Gerador:
 
         Distingue os dois motivos, porque a ação corretiva é diferente: subir o serviço
         ou baixar o modelo. Uma mensagem genérica mandaria conferir a coisa errada.
+
+        A comparação é pelo nome completo, e não pela família. Comparar só ``qwen2.5``
+        aceitava o 3B no lugar do 7B: `GET /sistema` declarava o modelo disponível, a
+        interface mostrava tudo em ordem e a geração falhava depois — caindo na mensagem
+        genérica de :meth:`_indisponivel`, justamente a que não diz o que fazer. O README
+        manda baixar os dois modelos e alternar por ``MODELO_LLM``, então o caso é o
+        provável, não o exótico.
         """
         try:
             catalogo = self._cliente.list().get("models", [])
@@ -291,8 +308,8 @@ class Gerador:
                 "Inicie-o com `ollama serve` e tente novamente."
             ) from erro
 
-        familia = self._modelo.split(":")[0]
-        if not any(m.get("model", "").startswith(familia) for m in catalogo):
+        instalados = {_com_etiqueta(m.get("model", "")) for m in catalogo}
+        if _com_etiqueta(self._modelo) not in instalados:
             raise ModeloIndisponivel(
                 f"O modelo {self._modelo} não está instalado nesta máquina. "
                 f"Baixe-o com `ollama pull {self._modelo}`."
