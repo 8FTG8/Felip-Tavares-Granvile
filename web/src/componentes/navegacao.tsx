@@ -243,18 +243,31 @@ export function BarraMovel({ aoAbrir }: { aoAbrir: () => void }) {
 export function Topo({
   titulo,
   descricao,
+  info,
   etiquetas,
   acao,
 }: {
   titulo: string;
   descricao: string;
+  /**
+   * Ícone de informação, imediatamente à direita do título — tipicamente um
+   * `<SobreATela>`. Opcional: uma tela sem explicação declarada não ganha um botão que
+   * não abre nada.
+   */
+  info?: ReactNode;
   etiquetas?: ReactNode;
   acao?: ReactNode;
 }) {
   return (
     <header className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6 pb-5 mb-5 border-b border-borda">
       <div className="min-w-0">
-        <h1 className="text-titulo-pagina">{titulo}</h1>
+        {/* `items-center` alinha o ícone pela altura do texto, e não pela caixa da
+            linha: encostado na linha de base, ele fica visivelmente baixo ao lado de um
+            título de 22px. */}
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-titulo-pagina">{titulo}</h1>
+          {info}
+        </div>
         <p className="text-corpo text-tinta-secundaria mt-1 max-w-2xl">{descricao}</p>
       </div>
       <div className="md:ml-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-end gap-2 shrink-0">

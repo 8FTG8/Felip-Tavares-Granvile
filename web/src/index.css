@@ -188,6 +188,12 @@
   /* Área de edição do JSON do evento. */
   --altura-json: 320px;
 
+  /* Diálogo modal. A largura acomoda uma descrição em duas ou três linhas sem que a
+   * medida de leitura estoure; a altura é da área rolável, para que cabeçalho e ação
+   * fiquem sempre visíveis, mesmo numa tela de explicação longa em 768px. */
+  --largura-dialogo: 34rem;
+  --altura-dialogo: min(60vh, 32rem);
+
   /* ── Medidas de gráfico ───────────────────────────────────────────────────────
    *
    * O Recharts recebe estas como números em JavaScript. Ficam aqui porque
@@ -342,6 +348,31 @@
    * o número em destaque dos indicadores e para as similaridades dos vizinhos. */
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Diálogo modal.
+   *
+   * Sobre o elemento `<dialog>`, que já traz do navegador o que um diálogo feito à mão
+   * teria de reimplementar: foco preso enquanto aberto, Escape para fechar, devolução
+   * do foco ao gatilho e inércia do resto da página. O que falta é aparência — a folha
+   * do agente de usuário traz borda, margem própria e um véu opaco.
+   *
+   * O véu usa o mesmo degrau de opacidade da gaveta da lateral. `color-mix` porque os
+   * tokens são variáveis CSS, e concatenar opacidade em hexadecimal não resolveria. */
+  .dialogo {
+    margin: auto;
+    padding: 0;
+    width: 100%;
+    max-width: min(var(--largura-dialogo), calc(100vw - 2rem));
+    background: var(--color-superficie);
+    color: var(--color-tinta);
+    border: 1px solid var(--color-borda);
+    border-radius: var(--radius-cartao);
+    box-shadow: var(--shadow-flutuante);
+  }
+
+  .dialogo::backdrop {
+    background: color-mix(in srgb, var(--color-tinta) 45%, transparent);
   }
 
   /* Texto de procedimento devolvido pelo modelo: markdown simples, com espaçamento

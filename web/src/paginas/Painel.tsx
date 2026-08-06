@@ -31,6 +31,8 @@ import {
   RodapeCartao,
   Vazio,
 } from "../componentes/base";
+import { SobreATela } from "../componentes/info";
+import type { ConteudoDaTela } from "../componentes/info";
 import { nomeCondicao, porNome } from "../condicoes";
 import { numero, percentual, percentualCss } from "../formato";
 import {
@@ -55,6 +57,104 @@ import type { Pagina } from "../componentes/navegacao";
 /** Verde é sempre *coberto por procedimento*; âmbar, sempre *sem respaldo*. */
 const COR_COBERTO = COR.sucesso;
 const COR_SEM_DOCUMENTO = COR.alerta;
+
+/**
+ * Conteúdo do diálogo de informação desta tela.
+ *
+ * Fica junto da tela que descreve, e não dentro do componente: `SobreATela` não conhece
+ * tela alguma, e acrescentar a próxima é declarar outro objeto como este.
+ */
+const SOBRE_O_PAINEL: ConteudoDaTela = {
+  titulo: "Painel do histórico",
+  descricao:
+    "Panorama dos 166.796 eventos de vibração já monitorados e da cobertura documental " +
+    "de cada defeito.",
+  secoes: [
+    {
+      rotulo: "Indicadores",
+      itens: [
+        {
+          titulo: "Cobertura documental",
+          descricao:
+            "Proporção dos eventos cujo defeito tem procedimento técnico cadastrado. A " +
+            "barra mostra as duas frações: o que é atendido e o que o sistema recusa.",
+          icone: "verified",
+        },
+        {
+          titulo: "Eventos monitorados",
+          descricao: "Total de leituras de sensor no histórico, e em quantos dias houve registro.",
+          icone: "database",
+        },
+        {
+          titulo: "Defeitos",
+          descricao:
+            "Eventos que registram falha. Os demais são estados operacionais — normal, " +
+            "linha de base, ensaio, aceleração e motor desligado —, que não recebem " +
+            "prescrição por não haver o que corrigir.",
+          icone: "warning",
+        },
+        {
+          titulo: "Famílias de defeito",
+          descricao:
+            "Condições distintas depois da normalização: 151 grafias do operador viram " +
+            "17 formas canônicas, das quais 12 são defeito.",
+          icone: "category",
+        },
+      ],
+    },
+    {
+      rotulo: "Cobertura",
+      itens: [
+        {
+          titulo: "Ocorrências por condição",
+          descricao:
+            "Volume de cada família, em verde quando há procedimento e em âmbar quando " +
+            "não há. A legenda repete a contagem ao lado do nome, para que a cor não " +
+            "seja o único portador da informação.",
+          icone: "bar_chart",
+        },
+        {
+          titulo: "Defeitos sem procedimento",
+          descricao:
+            "As famílias que o sistema se recusa a atender, com quantos eventos cada " +
+            "uma afeta. Aparece apenas quando existe alguma.",
+          icone: "block",
+          tom: "alerta",
+          nota: "Sem documento, não há recomendação — é o requisito, não uma limitação.",
+        },
+      ],
+    },
+    {
+      rotulo: "Distribuição",
+      itens: [
+        {
+          titulo: "Eventos ao longo do tempo",
+          descricao:
+            "Volume diário, com as campanhas de ensaio marcadas ao fundo. Até 28/05 " +
+            "cada trecho concentra um modo de falha; de 01/06 em diante as campanhas se " +
+            "sobrepõem.",
+          icone: "show_chart",
+          nota: "A data carrega informação sobre o rótulo, e por isso não entra como atributo.",
+        },
+        {
+          titulo: "Rotação",
+          descricao:
+            "Eventos por faixa de RPM. São cinco rotações distintas em todo o " +
+            "histórico — sinal de bancada de ensaio, não de operação contínua.",
+          icone: "speed",
+        },
+        {
+          titulo: "Detalhamento por condição",
+          descricao:
+            "Tabela ordenável com volume, proporção, número de grafias distintas e " +
+            "média diária. O filtro casa tanto com o nome em português quanto com o " +
+            "identificador do banco.",
+          icone: "table_rows",
+        },
+      ],
+    },
+  ],
+};
 
 export function Painel({
   dados,
@@ -101,6 +201,7 @@ export function Painel({
       <Topo
         titulo="Painel do histórico"
         descricao="Panorama dos eventos monitorados e da cobertura documental por defeito."
+        info={<SobreATela {...SOBRE_O_PAINEL} />}
         etiquetas={
           <>
             {sistema && <Etiqueta cor={COR.acento}>{sistema.modelo}</Etiqueta>}
