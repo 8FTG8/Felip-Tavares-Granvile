@@ -1,4 +1,4 @@
-"""Testes do chat (ADR-002, ADR-010-A).
+"""Testes do chat (ADR-002, ADR-010).
 
 O chat é a via de acesso mais direta ao modelo e, por isso, a mais tentadora de deixar
 sem barreira. Estes testes verificam que ele não é uma porta lateral: a pergunta passa
@@ -106,7 +106,7 @@ class TestConsultaComCondicao:
 
 
 class TestConsultaAncorada:
-    """ADR-010-A: a consulta enviada ao índice carrega a condição."""
+    """ADR-010: a consulta enviada ao índice carrega a condição."""
 
     def test_condicao_prefixa_a_pergunta(self) -> None:
         assert montar_consulta("cocked_rotor", "e o eixo?") == "cocked rotor: e o eixo?"

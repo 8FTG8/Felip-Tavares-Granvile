@@ -81,7 +81,7 @@ class TestRegistro:
         assert registro.buscar("ventoinha") is None
 
     def test_remover_informa_se_havia(self, registro: RegistroDocumentos) -> None:
-        """O retorno é o que separa 200 de 404 sem uma segunda consulta ao banco."""
+        """O retorno distingue "removi" de "não havia nada"."""
         registro.registrar("ventoinha", "DocOp-ventoinha", "/tmp/x.pdf", 16, "nativo")
         assert registro.remover("ventoinha") is True
         assert registro.remover("ventoinha") is False
@@ -295,7 +295,7 @@ class TestCicloCompletoDoGuardrail:
         precedência invertida — "um cadastro em operação sobrepõe-se ao mapa" —, e nenhum
         teste tocava o caso, porque a demonstração só cadastra para condição descoberta.
         Trocar um procedimento revisto por um PDF enviado em operação exige alterar o
-        mapa, que passa por revisão de código (ADR-014, Revisão 2).
+        mapa, que passa por revisão de código (ADR-014).
         """
         _pular_sem_base()
         _cadastrar(cliente, "desalinhado")
@@ -331,7 +331,7 @@ def _cadastrar(cliente: TestClient, condicao: str, origem: Path = PROCEDIMENTO) 
 
 
 class TestRemocao:
-    """Desfazer um cadastro feito em operação (ADR-014-A).
+    """Desfazer um cadastro feito em operação (ADR-014).
 
     Cadastrar na condição errada é erro banal de operação, e antes desta rota a única
     saída era mexer no índice, no SQLite e no disco por fora, com reinício do serviço.
@@ -363,7 +363,7 @@ class TestRemocao:
     ) -> None:
         """Nenhum trecho sobrevive à remoção.
 
-        É a mesma falha da Revisão 1 do ADR-014: trecho órfão no índice continua sendo
+        É a mesma falha da ADR-014: trecho órfão no índice continua sendo
         recuperado e citado como fonte legítima de um documento que já não existe.
         """
         _pular_sem_base()
@@ -432,7 +432,7 @@ class TestRemocao:
         """A linha existe no registro mesmo sem aparecer na cobertura, e a rota a alcança.
 
         Cadastrar para uma condição que o mapa já cobre grava a associação e não muda o
-        roteamento (ADR-014, Revisão 2). A interface não marca a linha como *cadastrado
+        roteamento (ADR-014). A interface não marca a linha como *cadastrado
         em operação* e portanto não oferece o botão — mas a API remove.
         """
         _pular_sem_base()

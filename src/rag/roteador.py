@@ -149,7 +149,7 @@ class Roteador:
         A ordem é mapa primeiro: o registro só é consultado onde o mapa não cobre. Um
         procedimento revisto e versionado não é substituído por um envio feito em
         operação — a substituição exigiria alterar o mapa, que passa por revisão de
-        código. É a mesma razão pela qual a remoção do ADR-014-A alcança só a camada de
+        código. É a mesma razão pela qual a remoção do ADR-014 alcança só a camada de
         cima.
         """
         situacao = cobertura(condicao)

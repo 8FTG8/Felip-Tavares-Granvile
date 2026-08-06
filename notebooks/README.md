@@ -8,7 +8,7 @@ versionado no repositório.
 | | Sustenta | Custo de execução |
 | --- | --- | --- |
 | [`01-classificador-e-vazamento`](01-classificador-e-vazamento.ipynb) | ADR-003 — por que não há classificador no caminho crítico | ~10 min |
-| [`02-calibracao-do-limiar`](02-calibracao-do-limiar.ipynb) | ADR-010 e ADR-010-A — de onde vem o número 0,8400 | ~1 min |
+| [`02-calibracao-do-limiar`](02-calibracao-do-limiar.ipynb) | ADR-010 — de onde vem o número 0,8400 | ~1 min |
 | [`03-analise-exploratoria`](03-analise-exploratoria.ipynb) | ADR-005, 006, 007 e 011 — o que os dados são | ~1 min |
 
 Ler nesta ordem inverte a cronologia: o **03** é o que foi feito primeiro, e é por onde

@@ -62,7 +62,7 @@ existir. São **duas barreiras, ambas anteriores a qualquer geração de texto**
 1. **Mapa defeito → documento.** Consulta a dicionário. Não envolve modelo algum e não há
    formulação de pergunta capaz de contorná-la.
 2. **Limiar de relevância**, calibrado empiricamente em 0,8400 sobre 44 perguntas reais
-   (ADR-010 e ADR-010-A).
+   (ADR-010).
 
 Os textos de recusa são **compostos em código, nunca gerados** — uma recusa escrita pelo
 modelo poderia alucinar a própria justificativa. Os testes afirmam que o cliente do LLM
@@ -73,14 +73,13 @@ respondendo normalmente.
 ## Decisões técnicas
 
 Cada decisão relevante está registrada em [docs/decisoes.md](docs/decisoes.md), no formato
-contexto → alternativas → escolha → justificativa → consequências aceitas. São 20 registros;
+contexto → decisão → justificativa. São 17 registros;
 os principais:
 
 | Decisão | Escolha | Porquê |
 | --- | --- | --- |
 | LLM | Qwen2.5 Instruct, local via Ollama | Cabe na GPU de 16 GB e opera offline — o dado industrial não sai da planta (ADR-001, ADR-013) |
-| Camada de serviço | FastAPI, com a interface como cliente HTTP | O consumidor natural em ambiente industrial é o supervisório, não um navegador: a API é o contrato de integração (ADR-002) |
-| Interface | React própria, em outro processo | Com o cliente em outra linguagem, "a interface não importa módulo algum do domínio" deixa de ser disciplina e passa a ser imposto pelo ambiente (ADR-002-A) |
+| Camada de serviço | FastAPI, com a interface como cliente HTTP em React | O consumidor natural em ambiente industrial é o supervisório, não um navegador: a API é o contrato de integração. Com o cliente em outro processo, "a interface não importa módulo algum do domínio" deixa de ser disciplina e passa a ser imposto pelo ambiente (ADR-002) |
 | Identificação do defeito | Rótulo do operador, normalizado deterministicamente | O `fault` vem no JSON de entrada; um classificador sobre os atributos fica no nível do baseline fora de sessão — 12,4% contra 11,7% de chutar a classe majoritária (ADR-003) |
 | Normalização | 151 grafias → 17 formas canônicas | Sem ela o guardrail recusaria 421 eventos que têm documentação (ADR-005) |
 | Busca por similaridade | k-NN global, com o defeito de cada vizinho exibido | Responde ao que o enunciado pede e é explicável: a resposta *é* a lista de vizinhos (ADR-008) |
@@ -98,7 +97,7 @@ Sete rotas, com OpenAPI publicado em `/docs`:
 | `POST` | `/chat` | Consulta livre, sujeita às mesmas barreiras |
 | `POST` | `/chat/fluxo` | Idem, com a resposta transmitida em partes e o roteamento nos cabeçalhos |
 | `POST` | `/documentos` | Cadastro de procedimento em operação, sem reiniciar o serviço (ADR-014) |
-| `DELETE` | `/documentos/{condicao}` | Desfaz um cadastro em operação; a condição volta a ser recusada (ADR-014-A) |
+| `DELETE` | `/documentos/{condicao}` | Desfaz um cadastro em operação; a condição volta a ser recusada (ADR-014) |
 | `GET` | `/documentos/cobertura` | Situação documental de cada defeito, com justificativa das lacunas |
 | `GET` | `/estatisticas` | Panorama do histórico e campanhas de ensaio (ADR-017) |
 | `GET` | `/sistema` | Modelo em uso, disponibilidade, limiar e tamanho dos índices |
@@ -154,7 +153,7 @@ web/           interface React
   scripts/     verificadores de tokens e de contraste
   nginx.conf   serve o estático e encaminha /api ao serviço Python
 
-docker-compose.yml · Dockerfile.api · web/Dockerfile    empacotamento (ADR-002-A)
+docker-compose.yml · Dockerfile.api · web/Dockerfile    empacotamento (ADR-002)
 ```
 
 ## Como executar
@@ -185,7 +184,7 @@ Enquanto isso o serviço aparece como `starting` na verificação de saúde, nã
 Interface em `http://localhost`, API em `http://localhost:8000`, documentação interativa
 em `http://localhost:8000/docs`. São três serviços — `api`, `web` (nginx servindo o
 estático e encaminhando `/api`) e `ollama`. O detalhamento está em
-[docs/arquitetura.md](docs/arquitetura.md) §8 e o raciocínio, no ADR-002-A.
+[docs/arquitetura.md](docs/arquitetura.md) §8 e o raciocínio, no ADR-002.
 
 Para o modelo de produção, `MODELO_LLM=qwen2.5:7b-instruct docker compose up -d` depois
 do `pull` correspondente.

@@ -163,7 +163,7 @@ export function Documentos({
               </div>
 
               {/* A remoção só alcança o que foi cadastrado em operação: a cobertura da
-                  base entregue é versionada em código (ADR-014-A). */}
+                  base entregue é versionada em código (ADR-014). */}
               {situacao.cadastrado_em_operacao && (
                 <div className="sm:ml-auto shrink-0">
                   <Remocao

@@ -4,7 +4,7 @@ Solução de manutenção prescritiva: recebe um evento de sensor de vibração,
 ocorrências semelhantes no histórico e prescreve a ação corretiva **apenas quando existe
 procedimento técnico que a fundamente**.
 
-O porquê de cada escolha está em [`decisoes.md`](decisoes.md) — 20 registros. Este documento
+O porquê de cada escolha está em [`decisoes.md`](decisoes.md) — 17 registros. Este documento
 descreve o *que* e o *como*.
 
 ---

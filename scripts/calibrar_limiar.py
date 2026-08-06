@@ -135,7 +135,7 @@ def medir(indice: IndiceDocumental) -> list[tuple[Caso, float]]:
 def escolher_limiar(medidas: list[tuple[Caso, float]]) -> tuple[float, dict]:
     """Escolhe o **piso**: o corte mais alto que ainda aceita toda pergunta pertinente.
 
-    O critério é assimétrico de propósito, e essa é a decisão registrada no ADR-010-A.
+    O critério é assimétrico de propósito, e essa é a decisão registrada no ADR-010.
     Uma versão anterior desta função maximizava um escore simétrico — fração de
     pertinentes aceitas mais fração de impertinentes barradas —, o que trata os dois
     erros como igualmente caros. Sobre o conjunto atual ela devolvia 0,8590 enquanto a

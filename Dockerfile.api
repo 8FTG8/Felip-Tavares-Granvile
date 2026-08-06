@@ -1,4 +1,4 @@
-# Serviço Python: pipeline completo e API (ADR-002, ADR-002-A).
+# Serviço Python: pipeline completo e API (ADR-002).
 #
 # O torch é instalado a partir do índice de rodas para CPU. A roda padrão em Linux
 # embarca as bibliotecas CUDA e leva a imagem a mais de 5 GB, sem serventia aqui: quem

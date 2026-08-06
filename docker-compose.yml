@@ -1,4 +1,4 @@
-# Orquestração da solução (ADR-002-A).
+# Orquestração da solução (ADR-002).
 #
 # Três serviços: a API Python, a interface servida por nginx e o Ollama. O broker MQTT
 # descrito em `docs/arquitetura.md` §8 **não** está aqui: não existe adaptador que
